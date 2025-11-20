@@ -239,6 +239,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
         onTap: () {
           ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Seleccionado: ${juego.titulo}')));
+          _cambiar("/screen/detalleJuego");
         },
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -374,5 +375,10 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
           : null,
       tooltip: tooltip,
     );
+  }
+
+  void _cambiar(String ruta) {
+    Navigator.pop(context);
+    Navigator.pushNamed(context, ruta);
   }
 }

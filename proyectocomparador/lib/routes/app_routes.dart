@@ -1,35 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:proyectocomparador/models/juego.dart';
 import 'package:proyectocomparador/screens/iniciarSesion.dart';
 import 'package:proyectocomparador/screens/menuPrincipal.dart';
 import 'package:proyectocomparador/screens/registroUsuarios.dart';
-
-// ignore: depend_on_referenced_packages
+import 'package:proyectocomparador/screens/detalleJuego.dart';
 
 class AppRoutes {
-  // Definir nombres para las rutas
-  static const String home = '/screen/Home';
   static const String menuPrincipal = '/screen/menuPrincipal';
-  static const String juego = '/screen/juego';
-  static const String finalizarPartida = '/screen/finalizarPartida';
-  static const String puntuaciones = '/screen/puntuaciones';
-  static const String tutorial = '/screen/tutorial';
   static const String iniciarSesion = '/screen/iniciarSesion';
   static const String registroUsuario = '/screen/registroUsuarios';
-  static const String gestorDeSesion = '/screen/gestorDeSesion';
+  static const String detalleJuego = '/screen/detalleJuego';
 
-  // Mapa de rutas
   static final Map<String, WidgetBuilder> routes = {
-    //home: (context) => const HomeScreen(),
     menuPrincipal: (context) => const MenuPrincipal(title: 'Menu Principal'),
-    // finalizarPartida: (context) => const FinalizarPartida(title: "title"),
-    //  puntuaciones: (context) => const Puntuaciones( title: '',),
-//tutorial: (context) => const Tutorial(title: "title"),
-    iniciarSesion: (context) => const IniciarSesion(title: "title"),
-    registroUsuario: (context) => const RegistroUsuario(title: "title"),
-//gestorDeSesion: (context) => const GestorDeSesion(title: "title"),
+    iniciarSesion: (context) => const IniciarSesion(title: "Iniciar Sesión"),
+    registroUsuario: (context) => const RegistroUsuario(title: "Registro"),
   };
 
-  static void addRoutes(Map<String, WidgetBuilder> newRoutes) {
-    routes.addAll(newRoutes);
+  // Aquí manejamos rutas con parámetros
+  static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
+    if (settings.name == detalleJuego) {
+      final juego = settings.arguments as Juego;
+
+      return MaterialPageRoute(
+        builder: (_) => DetalleJuego(
+          title: "Detalle del Juego",
+          juego: juego,
+        ),
+      );
+    }
+
+    return null; // fallback
   }
 }
