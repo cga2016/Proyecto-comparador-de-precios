@@ -112,16 +112,9 @@ class _RegistroUsuarioState extends State<RegistroUsuario> {
       return;
     }
 
-//final nuevoUsuario =
-//Usuario(name: nick, correo: correo, contrasena: contrasena);
-
-//await firestoreService.addUsuario(nuevoUsuario);
-
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Usuario registrado correctamente.')),
     );
-
-    // _cambiar('/screen/menuPrincipal');
   }
 }

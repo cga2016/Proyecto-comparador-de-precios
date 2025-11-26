@@ -34,7 +34,7 @@ class _DetalleJuegoState extends State<DetalleJuego> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Imagen grande (si existe) - fallback a imagen pequeña
+              // Imagen grande (si existe) sino usar pequeña
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: SizedBox(
@@ -114,7 +114,6 @@ class _DetalleJuegoState extends State<DetalleJuego> {
 
               const SizedBox(height: 16),
 
-              // Descripción
               _buildSectionTitle('Descripción'),
               Text(
                   juego.descripcion.isNotEmpty
@@ -124,7 +123,6 @@ class _DetalleJuegoState extends State<DetalleJuego> {
 
               const SizedBox(height: 16),
 
-              // Otros datos estructurados
               _buildDetailRow('ID', juego.id),
               _buildDetailRow('URL imagen pequeña', juego.urlImagenPequena),
               _buildDetailRow('URL imagen grande', juego.urlImagenGrande),
@@ -137,7 +135,6 @@ class _DetalleJuegoState extends State<DetalleJuego> {
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      // Por ahora sin funcionalidad (placeholder)
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Añadir (sin función).')),
@@ -156,7 +153,6 @@ class _DetalleJuegoState extends State<DetalleJuego> {
                   const SizedBox(width: 20),
                   ElevatedButton(
                     onPressed: () {
-                      // Placeholder para "Precios"
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Precios (sin función).')),
@@ -177,7 +173,6 @@ class _DetalleJuegoState extends State<DetalleJuego> {
 
               const SizedBox(height: 24),
 
-              // Debug: vista rápida del objeto
               Text('Datos raw: ${juego.toJson()}',
                   style: const TextStyle(color: Colors.white54, fontSize: 12)),
             ],

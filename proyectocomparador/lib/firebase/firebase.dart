@@ -4,7 +4,6 @@ import 'package:proyectocomparador/models/usuarios.dart';
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Guarda un usuario
   Future<void> addUsuario(Usuario usuario) async {
     await _firestore.collection('user').add({
       'name': usuario.name,
@@ -13,7 +12,6 @@ class FirestoreService {
     });
   }
 
-  /// Busca un usuario por correo y contraseña
   Future<Usuario?> buscarUsuario(String correo, String contrasena) async {
     final snapshot = await _firestore
         .collection('user')

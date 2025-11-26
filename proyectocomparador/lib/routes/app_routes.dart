@@ -17,7 +17,6 @@ class AppRoutes {
     registroUsuario: (context) => const RegistroUsuario(title: "Registro"),
   };
 
-  // Aquí manejamos rutas con parámetros
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     if (settings.name == detalleJuego) {
       final juego = settings.arguments as Juego;
