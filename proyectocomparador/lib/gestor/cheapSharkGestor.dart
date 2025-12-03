@@ -1,3 +1,4 @@
+// ignore_for_file: file_names
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -15,11 +16,13 @@ class CheapSharkGestor {
       {http.Client? client, this.timeout = const Duration(seconds: 8)})
       : _client = client ?? http.Client();
 
+  /// Busca y devuelve una lista de `Juego` adaptados a tu nuevo modelo.
   Future<List<Juego>> searchByTitle(String title,
       {int limit = 5, bool useCache = true}) async {
     final key = 'search:$title:$limit';
     if (useCache && _cache.containsKey(key)) {
       final cached = _cache[key] as List<Juego>;
+      debugLog('cache hit for $key (items=${cached.length})');
       return cached;
     }
 
@@ -32,21 +35,29 @@ class CheapSharkGestor {
     final results = <Juego>[];
     for (final item in raw) {
       final gameId = item['gameID']?.toString() ?? '';
-      final titulo = item['external']?.toString() ?? '';
-      final cheapest =
-          double.tryParse((item['cheapest'] ?? '0').toString()) ?? 0.0;
-      final thumbnail = item['thumb']?.toString() ?? '';
+      final nombre = item['external']?.toString() ?? '';
+      final cheapestStr = (item['cheapest'] ?? '').toString();
+      final cheapestDouble =
+          double.tryParse(cheapestStr.replaceAll(',', '.')) ?? 0.0;
+      final thumb = item['thumb']?.toString() ?? '';
 
       results.add(Juego(
+        idCheapshark: gameId,
         id: gameId,
-        titulo: titulo,
-        descripcion: '',
-        urlImagenGrande: thumbnail,
-        urlImagenPequena: thumbnail,
-        precioActual: cheapest,
-        precioMinimo: cheapest,
-        review: 0.0,
-        desarrollador: '',
+        nombre: nombre,
+        steamApiID: '',
+        precioBase: cheapestStr.isNotEmpty ? cheapestStr : '0',
+        steamRating: '',
+        cuantasResenas: '',
+        metaCriticsRating: '',
+        metacriticLink: '',
+        fechaDeSalida: '',
+        publisher: '',
+        steamWorks: '',
+        thumb: thumb,
+        minimoHistorico: cheapestDouble,
+        fechaMinimoHistorico: '',
+        listaPorTienda: const [],
       ));
     }
 
@@ -54,9 +65,11 @@ class CheapSharkGestor {
     return results;
   }
 
+  /// Obtiene y mapea un juego por su gameId a tu modelo `Juego`.
   Future<Juego?> fetchByGameId(String gameId, {bool useCache = true}) async {
     final key = 'game:$gameId';
     if (useCache && _cache.containsKey(key)) {
+      debugLog('cache hit for $key');
       return _cache[key] as Juego?;
     }
 
@@ -69,44 +82,69 @@ class CheapSharkGestor {
       final images =
           (raw['images'] as Map<String, dynamic>?) ?? <String, dynamic>{};
 
-      final id = info['gameID']?.toString() ?? gameId;
-      final titulo = info['title']?.toString() ?? '';
-      final descripcion = info['desc']?.toString() ?? '';
-      final normalPrice = double.tryParse(
-              (info['normalPrice'] ?? info['price'] ?? '0').toString()) ??
-          0.0;
-      final cheapestEver = (raw['cheapestPriceEver']?['price'] != null)
-          ? double.tryParse(raw['cheapestPriceEver']['price'].toString()) ?? 0.0
+      final idCheap = info['gameID']?.toString() ?? gameId;
+      final nombre = info['title']?.toString() ?? '';
+      // precio base: intentamos normalPrice -> price -> cheapest -> ''
+      final precioBaseCandidate = (info['normalPrice'] ??
+              info['price'] ??
+              info['cheap'] ??
+              info['cheapest'] ??
+              '')
+          .toString();
+      // minimo historico: cheapestPriceEver.price si existe
+      final cheapestEverRaw = raw['cheapestPriceEver'] is Map
+          ? raw['cheapestPriceEver']['price']
+          : null;
+      final cheapestEver = cheapestEverRaw != null
+          ? double.tryParse(cheapestEverRaw.toString().replaceAll(',', '.')) ??
+              0.0
           : 0.0;
 
-      double precioActual = 0.0;
+      // precio actual: buscar en deals[0].price si existe
+      double precioActualDouble = 0.0;
       final deals = (raw['deals'] as List<dynamic>?) ?? [];
       if (deals.isNotEmpty) {
-        precioActual =
-            double.tryParse(deals[0]['price'].toString()) ?? precioActual;
+        precioActualDouble = double.tryParse(
+                deals[0]['price']?.toString().replaceAll(',', '.') ?? '') ??
+            precioActualDouble;
       } else {
-        precioActual = double.tryParse(
-                (info['cheapest'] ?? cheapestEver ?? normalPrice).toString()) ??
-            0.0;
+        // fallback: usar cheapestEver o normalPrice parseado
+        final parsedNormal =
+            double.tryParse(precioBaseCandidate.replaceAll(',', '.')) ?? 0.0;
+        precioActualDouble = cheapestEver > 0 ? cheapestEver : parsedNormal;
       }
 
-      final urlImagenGrande =
-          (images['banner'] ?? images['capsule'] ?? images['thumb'] ?? '')
-              .toString();
-      final urlImagenPequena =
-          (images['thumb'] ?? images['capLarge'] ?? images['capsule'] ?? '')
-              .toString();
+      final thumb = (images['banner'] ??
+              images['capsule'] ??
+              images['thumb'] ??
+              images['capLarge'] ??
+              '')
+          .toString();
 
+      // NOTA: listaPorTienda queda vacía por defecto. Si quieres que parsee `deals`
+      // a DatoJuegoPorTienda, pásame la estructura de esa clase y lo implemento.
       final juego = Juego(
-        id: id,
-        titulo: titulo,
-        descripcion: descripcion,
-        urlImagenGrande: urlImagenGrande,
-        urlImagenPequena: urlImagenPequena,
-        precioActual: precioActual,
-        precioMinimo: cheapestEver > 0 ? cheapestEver : precioActual,
-        review: 0.0,
-        desarrollador: info['developer']?.toString() ?? '',
+        idCheapshark: idCheap,
+        id: idCheap,
+        nombre: nombre,
+        steamApiID: info['steamAppID']?.toString() ?? '',
+        precioBase: precioBaseCandidate.isNotEmpty
+            ? precioBaseCandidate
+            : precioActualDouble.toStringAsFixed(2),
+        steamRating: '',
+        cuantasResenas: '',
+        metaCriticsRating: '',
+        metacriticLink: '',
+        fechaDeSalida: info['releaseDate']?.toString() ?? '',
+        publisher: info['publisher']?.toString() ??
+            info['developer']?.toString() ??
+            '',
+        steamWorks: info['steamworks']?.toString() ?? '',
+        thumb: thumb,
+        minimoHistorico: cheapestEver > 0 ? cheapestEver : precioActualDouble,
+        fechaMinimoHistorico:
+            '', // la API no devuelve fecha en cheapestPriceEver
+        listaPorTienda: const [],
       );
 
       _cache[key] = juego;
@@ -117,7 +155,7 @@ class CheapSharkGestor {
     }
   }
 
-// busqueda por nombre
+  /// búsqueda "cruda" que devuelve el JSON tal cual (lista de mapas)
   Future<List<Map<String, dynamic>>> searchByName(String title,
       {int limit = 5, bool useCache = true}) async {
     final key = 'raw_search:$title:$limit';
@@ -157,12 +195,12 @@ class CheapSharkGestor {
       debugLog('Timeout on $url');
       return <Map<String, dynamic>>[];
     } catch (e, st) {
-      debugLog('Error on searchRawByTitle: $e\n$st');
+      debugLog('Error on searchByName: $e\n$st');
       return <Map<String, dynamic>>[];
     }
   }
 
-  /// busqueda pruebas
+  /// detalle "crudo" por gameId
   Future<Map<String, dynamic>?> fetchRawByGameId(String gameId,
       {bool useCache = true}) async {
     final key = 'raw_game:$gameId';

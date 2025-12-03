@@ -18,6 +18,9 @@ class _DetalleJuegoState extends State<DetalleJuego> {
   Widget build(BuildContext context) {
     final juego = widget.juego;
 
+    // elegir imagen: usamos thumb (la API nueva sólo expone thumb en tu modelo)
+    final imageUrl = (juego.thumb.isNotEmpty) ? juego.thumb : '';
+
     return Scaffold(
       backgroundColor: const Color(0xFF7B2CBF),
       appBar: AppBar(
@@ -34,19 +37,14 @@ class _DetalleJuegoState extends State<DetalleJuego> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Imagen grande (si existe) sino usar pequeña
+              // Imagen grande (si existe) sino placeholder
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: SizedBox(
                   height: 220,
-                  child: (juego.urlImagenGrande.isNotEmpty
-                              ? juego.urlImagenGrande
-                              : juego.urlImagenPequena)
-                          .isNotEmpty
+                  child: imageUrl.isNotEmpty
                       ? Image.network(
-                          juego.urlImagenGrande.isNotEmpty
-                              ? juego.urlImagenGrande
-                              : juego.urlImagenPequena,
+                          imageUrl,
                           fit: BoxFit.cover,
                           width: double.infinity,
                           errorBuilder: (context, error, stackTrace) =>
@@ -71,9 +69,9 @@ class _DetalleJuegoState extends State<DetalleJuego> {
 
               const SizedBox(height: 16),
 
-              // Título
+              // Título (nombre)
               Text(
-                juego.titulo,
+                juego.nombre.isNotEmpty ? juego.nombre : 'Sin título',
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -82,52 +80,70 @@ class _DetalleJuegoState extends State<DetalleJuego> {
 
               const SizedBox(height: 8),
 
-              // Precio y review
+              // Precio y datos básicos
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Columna izquierda: precio actual (precioBase) y mínimo histórico
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Precio actual: ${_formatPrice(juego.precioActual)}',
+                      Text(
+                          'Precio actual: ${_formatPriceFromStringOrDouble(juego.precioBase, juego.minimoHistorico)}',
                           style: const TextStyle(
                               color: Colors.white70, fontSize: 16)),
                       const SizedBox(height: 6),
-                      Text('Precio mínimo: ${_formatPrice(juego.precioMinimo)}',
+                      Text(
+                          'Precio mínimo histórico: ${_formatPriceDouble(juego.minimoHistorico)}',
                           style: const TextStyle(
                               color: Colors.greenAccent, fontSize: 14)),
                     ],
                   ),
+
+                  // Columna derecha: algunos metadatos si existen
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('Review: ${juego.review.toStringAsFixed(1)}',
-                          style: const TextStyle(color: Colors.white70)),
+                      Text(
+                          'Steam ID: ${juego.steamApiID.isNotEmpty ? juego.steamApiID : 'No disponible'}',
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 12)),
                       const SizedBox(height: 6),
-                      Text('Desarrollador: ${juego.desarrollador}',
+                      Text(
+                          'Publisher: ${juego.publisher.isNotEmpty ? juego.publisher : 'No disponible'}',
                           style: const TextStyle(
                               color: Colors.white60, fontSize: 12)),
                     ],
-                  )
+                  ),
                 ],
               ),
 
               const SizedBox(height: 16),
 
               _buildSectionTitle('Descripción'),
+              // El modelo actual no tiene campo 'descripcion' en tu definición; mostramos fallback
               Text(
-                  juego.descripcion.isNotEmpty
-                      ? juego.descripcion
-                      : 'No disponible',
-                  style: const TextStyle(color: Colors.white, fontSize: 14)),
+                'No disponible',
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
 
               const SizedBox(height: 16),
 
-              _buildDetailRow('ID', juego.id),
-              _buildDetailRow('URL imagen pequeña', juego.urlImagenPequena),
-              _buildDetailRow('URL imagen grande', juego.urlImagenGrande),
+              _buildDetailRow('ID CheapShark', juego.idCheapshark),
+              _buildDetailRow('ID interno', juego.id),
+              _buildDetailRow('URL imagen (thumb)', juego.thumb),
+              _buildDetailRow('Precio base (raw)', juego.precioBase),
+              _buildDetailRow(
+                  'Fecha mínimo histórico', juego.fechaMinimoHistorico),
 
               const SizedBox(height: 24),
+
+              // Si listaPorTienda tiene datos, mostramos un resumen
+              if (juego.listaPorTienda.isNotEmpty) ...[
+                _buildSectionTitle('Precios por tienda'),
+                _buildTiendasList(),
+                const SizedBox(height: 24),
+              ],
 
               // Botones Añadir y Precios
               Row(
@@ -173,6 +189,7 @@ class _DetalleJuegoState extends State<DetalleJuego> {
 
               const SizedBox(height: 24),
 
+              // Datos raw (mapa)
               Text('Datos raw: ${juego.toJson()}',
                   style: const TextStyle(color: Colors.white54, fontSize: 12)),
             ],
@@ -206,8 +223,61 @@ class _DetalleJuegoState extends State<DetalleJuego> {
     );
   }
 
-  String _formatPrice(double price) {
-    if (price <= 0) return 'Gratis';
-    return price.toStringAsFixed(2);
+  // Muestra listaPorTienda en forma compacta. Requiere que DatoJuegoPorTienda tenga toJson() implementado.
+  Widget _buildTiendasList() {
+    final lista = widget.juego.listaPorTienda;
+    return Column(
+      children: lista.map((d) {
+        final map = d.toJson();
+        final tienda = map['storeName'] ?? map['store'] ?? 'Tienda';
+        final price = map['price']?.toString() ?? '-';
+        return Card(
+          color: const Color(0xFF2A2A2A),
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: ListTile(
+            title: Text(tienda.toString(),
+                style: const TextStyle(color: Colors.white)),
+            subtitle: Text('Precio: $price',
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  String _formatPriceDouble(double price) {
+    try {
+      if (price.isNaN) return '-';
+      if (price <= 0) return 'Gratis';
+      return price.toStringAsFixed(2);
+    } catch (_) {
+      return '-';
+    }
+  }
+
+  String _formatPriceFromStringOrDouble(
+      String precioBase, double minimoHistorico) {
+    // precioBase viene como String en el modelo; intentamos parsearlo.
+    final parsed = _tryParseDouble(precioBase);
+    if (parsed != null) {
+      if (parsed <= 0) return 'Gratis';
+      return parsed.toStringAsFixed(2);
+    }
+
+    // fallback a minimoHistorico
+    if (minimoHistorico > 0) return minimoHistorico.toStringAsFixed(2);
+
+    return 'No disponible';
+  }
+
+  double? _tryParseDouble(String? s) {
+    if (s == null) return null;
+    final clean = s.replaceAll(',', '.').trim();
+    try {
+      return double.parse(clean);
+    } catch (_) {
+      return null;
+    }
   }
 }

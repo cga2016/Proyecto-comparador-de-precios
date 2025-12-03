@@ -1,52 +1,86 @@
-// ignore: file_names
+import 'package:proyectocomparador/models/juegoPorTienda.dart';
+
 class Juego {
-  final String id;
-  final String titulo;
-  final String descripcion;
-  final String urlImagenGrande;
-  final String urlImagenPequena;
-  final double precioActual;
-  final double precioMinimo;
-  final double review;
-  final String desarrollador;
+  String idCheapshark;
+  String id;
+  String nombre;
+  String steamApiID;
+  String precioBase;
+  String steamRating;
+  String cuantasResenas;
+  String metaCriticsRating;
+  String metacriticLink;
+  String fechaDeSalida;
+  String publisher;
+  String steamWorks;
+  String thumb;
+  double minimoHistorico;
+  String fechaMinimoHistorico;
+  List<DatoJuegoPorTienda> listaPorTienda;
 
   Juego({
+    required this.idCheapshark,
     required this.id,
-    required this.titulo,
-    required this.descripcion,
-    required this.urlImagenGrande,
-    required this.urlImagenPequena,
-    required this.precioActual,
-    required this.precioMinimo,
-    required this.review,
-    required this.desarrollador,
+    required this.nombre,
+    required this.steamApiID,
+    required this.precioBase,
+    required this.steamRating,
+    required this.cuantasResenas,
+    required this.metaCriticsRating,
+    required this.metacriticLink,
+    required this.fechaDeSalida,
+    required this.publisher,
+    required this.steamWorks,
+    required this.thumb,
+    required this.minimoHistorico,
+    required this.fechaMinimoHistorico,
+    this.listaPorTienda = const [],
   });
 
-  factory Juego.fromJson(Map<String, dynamic> json) {
-    return Juego(
-      id: json['id'],
-      titulo: json['titulo'],
-      descripcion: json['descripcion'],
-      urlImagenGrande: json['urlImagenGrande'],
-      urlImagenPequena: json['urlImagenPequena'],
-      precioActual: (json['precioActual'] as num).toDouble(),
-      precioMinimo: (json['precioMinimo'] as num).toDouble(),
-      review: (json['review'] as num).toDouble(),
-      desarrollador: json['desarrollador'],
-    );
-  }
-
+  // Convertir a mapa (para JSON o Firestore)
   Map<String, dynamic> toJson() {
     return {
+      'idCheapshark': idCheapshark,
       'id': id,
-      'titulo': titulo,
-      'descripcion': descripcion,
-      'urlImagenGrande': urlImagenGrande,
-      'urlImagenPequena': urlImagenPequena,
-      'precioActual': precioActual,
-      'precioMinimo': precioMinimo,
-      'review': review,
-      'desarrollador': desarrollador,
+      'nombre': nombre,
+      'steamApiID': steamApiID,
+      'precioBase': precioBase,
+      'steamRating': steamRating,
+      'cuantasResenas': cuantasResenas,
+      'metaCriticsRating': metaCriticsRating,
+      'metacriticLink': metacriticLink,
+      'fechaDeSalida': fechaDeSalida,
+      'publisher': publisher,
+      'steamWorks': steamWorks,
+      'thumb': thumb,
+      'minimoHistorico': minimoHistorico,
+      'fechaMinimoHistorico': fechaMinimoHistorico,
+      'listaPorTienda': listaPorTienda.map((e) => e.toJson()).toList(),
     };
+  }
+
+  // Crear instancia desde un mapa
+  factory Juego.fromJson(Map<String, dynamic> json) {
+    return Juego(
+      idCheapshark: json['idCheapshark'],
+      id: json['id'],
+      nombre: json['nombre'],
+      steamApiID: json['steamApiID'],
+      precioBase: json['precioBase'],
+      steamRating: json['steamRating'],
+      cuantasResenas: json['cuantasResenas'],
+      metaCriticsRating: json['metaCriticsRating'],
+      metacriticLink: json['metacriticLink'],
+      fechaDeSalida: json['fechaDeSalida'],
+      publisher: json['publisher'],
+      steamWorks: json['steamWorks'],
+      thumb: json['thumb'],
+      minimoHistorico: (json['minimoHistorico'] as num).toDouble(),
+      fechaMinimoHistorico: json['fechaMinimoHistorico'],
+      listaPorTienda: json['listaPorTienda'] != null
+          ? List<DatoJuegoPorTienda>.from((json['listaPorTienda'] as List)
+              .map((item) => DatoJuegoPorTienda.fromJson(item)))
+          : [],
+    );
   }
 }

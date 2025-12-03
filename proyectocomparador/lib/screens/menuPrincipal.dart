@@ -71,6 +71,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
           const JsonEncoder.withIndent('  ').convert(rawSearch);
       debugPrint('--- JSON: resultados de búsqueda ---\n$prettySearch');
 
+      // Asumimos que searchByTitle devuelve List<Juego> según tu nuevo modelo
       final mapped = await _gestor.searchByTitle(query, limit: 20);
 
       setState(() {
@@ -238,7 +239,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       child: InkWell(
         onTap: () {
           ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Seleccionado: ${juego.titulo}')));
+              SnackBar(content: Text('Seleccionado: ${juego.nombre}')));
           _cambiar("/screen/detalleJuego");
         },
         child: Padding(
@@ -250,9 +251,9 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                 child: SizedBox(
                   width: 96,
                   height: 54,
-                  child: juego.urlImagenPequena.isNotEmpty
+                  child: (juego.thumb.isNotEmpty)
                       ? Image.network(
-                          juego.urlImagenPequena,
+                          juego.thumb,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
                               Container(
@@ -274,7 +275,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      juego.titulo,
+                      juego.nombre,
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -284,7 +285,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Precio: ${_formatPrice(juego.precioActual)}',
+                      'Precio: ${_formatPriceFlexible(juego.precioBase, juego.minimoHistorico)}',
                       style:
                           const TextStyle(color: Colors.white70, fontSize: 14),
                     ),
@@ -296,7 +297,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'Min: ${_formatPrice(juego.precioMinimo)}',
+                    'Min: ${_formatPriceNumber(juego.minimoHistorico)}',
                     style: const TextStyle(
                         color: Colors.greenAccent, fontSize: 12),
                   ),
@@ -309,9 +310,42 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     );
   }
 
-  String _formatPrice(double price) {
-    if (price <= 0) return 'Gratis';
-    return price.toStringAsFixed(2);
+  String _formatPriceFlexible(
+      String precioBaseAsString, double minimoHistorico) {
+    // precioBase en tu modelo es String; intenta parsear a double.
+    final parsed = _tryParseDouble(precioBaseAsString);
+    if (parsed != null) {
+      if (parsed <= 0) return 'Gratis';
+      return parsed.toStringAsFixed(2);
+    }
+
+    // Si no hay precioBase usable, usa minimoHistorico si está definido y > 0
+    // ignore: unnecessary_null_comparison
+    if (minimoHistorico != null && minimoHistorico > 0) {
+      return minimoHistorico.toStringAsFixed(2);
+    }
+
+    return 'Gratis';
+  }
+
+  String _formatPriceNumber(double price) {
+    try {
+      if (price.isNaN) return '-';
+      if (price <= 0) return 'Gratis';
+      return price.toStringAsFixed(2);
+    } catch (_) {
+      return '-';
+    }
+  }
+
+  double? _tryParseDouble(String? s) {
+    if (s == null) return null;
+    final clean = s.replaceAll(',', '.').trim();
+    try {
+      return double.parse(clean);
+    } catch (_) {
+      return null;
+    }
   }
 
   Widget _getBodyContent() {
