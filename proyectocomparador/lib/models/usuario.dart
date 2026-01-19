@@ -52,4 +52,8 @@ class Usuario {
           : [],
     );
   }
+
+  String get idAsString {
+    return id.toString();
+  }
 }

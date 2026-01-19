@@ -1,33 +1,37 @@
 class DatoJuegoPorTienda {
-  String id;
+  String storeId;
   String dealId;
-  double precioOferta;
-  double precioBase;
+  double price;
+  double retailPrice;
 
   DatoJuegoPorTienda({
-    required this.id,
+    required this.storeId,
     required this.dealId,
-    required this.precioOferta,
-    required this.precioBase,
+    required this.price,
+    required this.retailPrice,
   });
+
+  get storeName => null;
+
+  get precio => null;
 
   // Convertir a mapa (para Firestore o JSON)
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'id': storeId,
       'dealId': dealId,
-      'precioOferta': precioOferta,
-      'precioBase': precioBase,
+      'precioOferta': price,
+      'precioBase': retailPrice,
     };
   }
 
   // Crear instancia desde un mapa
   factory DatoJuegoPorTienda.fromJson(Map<String, dynamic> json) {
     return DatoJuegoPorTienda(
-      id: json['id'],
+      storeId: json['id'],
       dealId: json['dealId'],
-      precioOferta: (json['precioOferta'] as num).toDouble(),
-      precioBase: (json['precioBase'] as num).toDouble(),
+      price: (json['precioOferta'] as num).toDouble(),
+      retailPrice: (json['precioBase'] as num).toDouble(),
     );
   }
 }

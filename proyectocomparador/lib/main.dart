@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:proyectocomparador/routes/app_routes.dart';
-// Importa esto si has ejecutado `flutterfire configure` y generó firebase_options.dart
+
 import 'firebase_options.dart';
 
 void main() async {

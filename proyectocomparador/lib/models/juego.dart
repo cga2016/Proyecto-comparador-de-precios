@@ -1,57 +1,86 @@
 import 'package:proyectocomparador/models/juegoPorTienda.dart';
 
+//id 1 Steam
+//id 7 gog
+//id 11 humble bundle
+//
+
 class Juego {
-  String idCheapshark;
-  String id;
-  String nombre;
-  String steamApiID;
-  String precioBase;
-  String steamRating;
-  String cuantasResenas;
-  String metaCriticsRating;
-  String metacriticLink;
-  String fechaDeSalida;
-  String publisher;
-  String steamWorks;
-  String thumb;
-  double minimoHistorico;
-  String fechaMinimoHistorico;
-  List<DatoJuegoPorTienda> listaPorTienda;
+  final String idCheapshark;
+  final String title;
+  final String steamApiID;
+
+  final String normalPrice;
+  final String steamRatingPercent;
+  final String steamRatingCount;
+  final String metaCriticScore;
+  final String metacriticLink;
+  final String releaseDate;
+  final String thumb;
+  final double minimoHistorico;
+  final String fechaMinimoHistorico;
+  final List<DatoJuegoPorTienda> listaPorTienda;
 
   Juego({
     required this.idCheapshark,
-    required this.id,
-    required this.nombre,
+    required this.title,
     required this.steamApiID,
-    required this.precioBase,
-    required this.steamRating,
-    required this.cuantasResenas,
-    required this.metaCriticsRating,
+    required this.normalPrice,
+    required this.steamRatingPercent,
+    required this.steamRatingCount,
+    required this.metaCriticScore,
     required this.metacriticLink,
-    required this.fechaDeSalida,
-    required this.publisher,
-    required this.steamWorks,
+    required this.releaseDate,
     required this.thumb,
     required this.minimoHistorico,
     required this.fechaMinimoHistorico,
     this.listaPorTienda = const [],
   });
 
-  // Convertir a mapa (para JSON o Firestore)
+  Juego copyWith({
+    String? idCheapshark,
+    String? nombre,
+    String? steamApiID,
+    String? normalPrice,
+    String? steamRatingPercent,
+    String? steamRatingCount,
+    String? metaCriticScore,
+    String? metacriticLink,
+    String? releaseDate,
+    String? thumb,
+    double? minimoHistorico,
+    String? fechaMinimoHistorico,
+    List<DatoJuegoPorTienda>? listaPorTienda,
+    required title,
+  }) {
+    return Juego(
+      idCheapshark: idCheapshark ?? this.idCheapshark,
+      title: nombre ?? this.title,
+      steamApiID: steamApiID ?? this.steamApiID,
+      normalPrice: normalPrice ?? this.normalPrice,
+      steamRatingPercent: steamRatingPercent ?? this.steamRatingPercent,
+      steamRatingCount: steamRatingCount ?? this.steamRatingCount,
+      metaCriticScore: metaCriticScore ?? this.metaCriticScore,
+      metacriticLink: metacriticLink ?? this.metacriticLink,
+      releaseDate: releaseDate ?? this.releaseDate,
+      thumb: thumb ?? this.thumb,
+      minimoHistorico: minimoHistorico ?? this.minimoHistorico,
+      fechaMinimoHistorico: fechaMinimoHistorico ?? this.fechaMinimoHistorico,
+      listaPorTienda: listaPorTienda ?? this.listaPorTienda,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'idCheapshark': idCheapshark,
-      'id': id,
-      'nombre': nombre,
+      'nombre': title,
       'steamApiID': steamApiID,
-      'precioBase': precioBase,
-      'steamRating': steamRating,
-      'cuantasResenas': cuantasResenas,
-      'metaCriticsRating': metaCriticsRating,
+      'normalPrice': normalPrice,
+      'steamRatingPercent': steamRatingPercent,
+      'steamRatingCount': steamRatingCount,
+      'metaCriticScore': metaCriticScore,
       'metacriticLink': metacriticLink,
-      'fechaDeSalida': fechaDeSalida,
-      'publisher': publisher,
-      'steamWorks': steamWorks,
+      'releaseDate': releaseDate,
       'thumb': thumb,
       'minimoHistorico': minimoHistorico,
       'fechaMinimoHistorico': fechaMinimoHistorico,
@@ -59,28 +88,27 @@ class Juego {
     };
   }
 
-  // Crear instancia desde un mapa
   factory Juego.fromJson(Map<String, dynamic> json) {
     return Juego(
-      idCheapshark: json['idCheapshark'],
-      id: json['id'],
-      nombre: json['nombre'],
-      steamApiID: json['steamApiID'],
-      precioBase: json['precioBase'],
-      steamRating: json['steamRating'],
-      cuantasResenas: json['cuantasResenas'],
-      metaCriticsRating: json['metaCriticsRating'],
-      metacriticLink: json['metacriticLink'],
-      fechaDeSalida: json['fechaDeSalida'],
-      publisher: json['publisher'],
-      steamWorks: json['steamWorks'],
-      thumb: json['thumb'],
-      minimoHistorico: (json['minimoHistorico'] as num).toDouble(),
-      fechaMinimoHistorico: json['fechaMinimoHistorico'],
-      listaPorTienda: json['listaPorTienda'] != null
-          ? List<DatoJuegoPorTienda>.from((json['listaPorTienda'] as List)
-              .map((item) => DatoJuegoPorTienda.fromJson(item)))
-          : [],
+      idCheapshark: json['idCheapshark']?.toString() ?? '',
+      title: json['nombre']?.toString() ?? '',
+      steamApiID: json['steamApiID']?.toString() ?? '',
+      normalPrice: json['normalPrice']?.toString() ?? '0',
+      steamRatingPercent: json['steamRatingPercent']?.toString() ?? '',
+      steamRatingCount: json['steamRatingCount']?.toString() ?? '',
+      metaCriticScore: json['metaCriticScore']?.toString() ?? '',
+      metacriticLink: json['metacriticLink']?.toString() ?? '',
+      releaseDate: json['releaseDate']?.toString() ?? '',
+      thumb: json['thumb']?.toString() ?? '',
+      minimoHistorico: (json['minimoHistorico'] is num)
+          ? (json['minimoHistorico'] as num).toDouble()
+          : double.tryParse(json['minimoHistorico']?.toString() ?? '') ?? 0.0,
+      fechaMinimoHistorico: json['fechaMinimoHistorico']?.toString() ?? '',
+      listaPorTienda: (json['listaPorTienda'] as List<dynamic>?)
+              ?.map((e) =>
+                  DatoJuegoPorTienda.fromJson(Map<String, dynamic>.from(e)))
+              .toList() ??
+          [],
     );
   }
 }

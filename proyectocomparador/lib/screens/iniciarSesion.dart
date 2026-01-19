@@ -1,6 +1,7 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
+import 'package:proyectocomparador/firebase/firebase.dart';
+import 'package:proyectocomparador/models/sesionUsuario.dart';
+import 'package:proyectocomparador/models/usuario.dart';
 
 class IniciarSesion extends StatefulWidget {
   const IniciarSesion({super.key, required this.title});
@@ -14,59 +15,60 @@ class IniciarSesion extends StatefulWidget {
 class _IniciarSesionState extends State<IniciarSesion> {
   final TextEditingController _correoController = TextEditingController();
   final TextEditingController _contrasenaController = TextEditingController();
-  // final FirestoreService firestoreService = FirestoreService();
+
+  final FirestoreService firestoreService = FirestoreService();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF7B2CBF),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              "Inicio de sesión",
-              style: TextStyle(
-                fontSize: 20,
-                color: Colors.white,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              const Text(
+                "Inicio de sesión",
+                style: TextStyle(
+                  fontSize: 20,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            const SizedBox(height: 30),
-            _campoTexto('Correo', _correoController,
-                tipo: TextInputType.emailAddress),
-            const SizedBox(height: 20),
-            _campoTexto('Contraseña', _contrasenaController,
-                esContrasena: true),
-            const SizedBox(height: 30),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                FloatingActionButton.extended(
-                  label: const Text(
-                    "Log in",
-                    style: TextStyle(fontSize: 20, color: Colors.white),
+              const SizedBox(height: 30),
+              _campoTexto('Correo', _correoController,
+                  tipo: TextInputType.emailAddress),
+              const SizedBox(height: 20),
+              _campoTexto('Contraseña', _contrasenaController,
+                  esContrasena: true),
+              const SizedBox(height: 30),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  FloatingActionButton.extended(
+                    label: const Text(
+                      "Log in",
+                      style: TextStyle(fontSize: 20, color: Colors.white),
+                    ),
+                    backgroundColor: const Color(0xFF3C096C),
+                    onPressed: _iniciarSesion,
+                    tooltip: 'Iniciar sesión',
                   ),
-                  backgroundColor: const Color(0xFF3C096C),
-                  onPressed: () {
-                    _cambiar('/screen/menuPrincipal');
-                  }, //_iniciarSesion,
-                  tooltip: 'Iniciar sesión',
-                ),
-                const SizedBox(width: 30),
-                FloatingActionButton.extended(
-                  label: const Text(
-                    "Registrar",
-                    style: TextStyle(fontSize: 20, color: Colors.white),
+                  const SizedBox(width: 30),
+                  FloatingActionButton.extended(
+                    label: const Text(
+                      "Registrar",
+                      style: TextStyle(fontSize: 20, color: Colors.white),
+                    ),
+                    backgroundColor: const Color(0xFF3C096C),
+                    onPressed: () {
+                      _cambiar('/screen/registroUsuarios');
+                    },
+                    tooltip: 'Ir a registro',
                   ),
-                  backgroundColor: const Color(0xFF3C096C),
-                  onPressed: () {
-                    _cambiar('/screen/registroUsuarios');
-                  },
-                  tooltip: 'Ir a registro',
-                ),
-              ],
-            )
-          ],
+                ],
+              )
+            ],
+          ),
         ),
       ),
     );
@@ -92,27 +94,38 @@ class _IniciarSesionState extends State<IniciarSesion> {
     );
   }
 
-  /* Future<void> _iniciarSesion() async {
+  Future<void> _iniciarSesion() async {
     final correo = _correoController.text.trim();
     final contrasena = _contrasenaController.text.trim();
 
-//final usuario = await firestoreService.buscarUsuario(correo, contrasena);
+    if (correo.isEmpty || contrasena.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Por favor completa todos los campos.")),
+      );
+      return;
+    }
 
-/*if (usuario != null) {
-      UsuarioIniciado.iniciarSesion(usuario);
+    final resultado = await firestoreService.buscarUsuario(correo, contrasena);
+
+    if (resultado == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inicio de sesión exitoso')),
+        const SnackBar(content: Text("Correo o contraseña incorrectos.")),
       );
-      _cambiar('/screen/menuPrincipal');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Correo o contraseña incorrectos')),
-      );
-    }*/
-  }*/
+      return;
+    }
+
+    final Usuario usuario = resultado['usuario'];
+
+    SesionUsuario.iniciarSesion(usuario);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Bienvenido, ${usuario.nick}!")),
+    );
+
+    _cambiar('/screen/menuPrincipal');
+  }
 
   void _cambiar(String ruta) {
-    Navigator.pop(context);
-    Navigator.pushNamed(context, ruta);
+    Navigator.pushReplacementNamed(context, ruta);
   }
 }

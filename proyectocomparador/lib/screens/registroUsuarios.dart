@@ -119,7 +119,6 @@ class _RegistroUsuarioState extends State<RegistroUsuario> {
     final contrasena = _contrasenaController.text.trim();
     final confirmar = _confirmController.text.trim();
 
-    // Comprueba campos vacíos y construir mensaje con los campos que faltan
     final List<String> faltan = [];
     if (nick.isEmpty) faltan.add('Nick');
     if (correo.isEmpty) faltan.add('Correo');
@@ -174,6 +173,7 @@ class _RegistroUsuarioState extends State<RegistroUsuario> {
       _correoController.clear();
       _contrasenaController.clear();
       _confirmController.clear();
+      _cambiar('/screen/iniciarSesion');
     } on FirebaseException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

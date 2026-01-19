@@ -1,9 +1,13 @@
-// ignore_for_file: file_names
-
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:proyectocomparador/firebase/firebase.dart';
 import 'package:proyectocomparador/gestor/cheapSharkGestor.dart';
 import 'package:proyectocomparador/models/juego.dart';
+import 'package:proyectocomparador/models/juegoPorTienda.dart';
+import 'package:proyectocomparador/models/usuarioIniciado.dart';
+import 'package:proyectocomparador/screens/buscador.dart';
+import 'package:proyectocomparador/screens/detalleJuego.dart';
+import 'package:proyectocomparador/screens/lista.dart';
+import 'package:proyectocomparador/widgets/appBarMenuPrincipal.dart';
 
 class MenuPrincipal extends StatefulWidget {
   const MenuPrincipal({super.key, required this.title});
@@ -18,14 +22,18 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
   int _currentIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   final CheapSharkGestor _gestor = CheapSharkGestor();
-  bool _isSearching = false;
+  final FirestoreService _fs = FirestoreService();
 
-  List<Juego> _searchResults = [];
+  bool _isEnriching = false;
 
-  void _onNavTap(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
+  final Set<String> _favoriteIds = {};
+
+  List<Juego> _favoriteGames = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserFavoritesIfLogged();
   }
 
   @override
@@ -35,88 +43,423 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     super.dispose();
   }
 
-  Future<void> _performSearchAndPrintJson() async {
-    final query = _searchController.text.trim();
-    if (query.isEmpty) {
-      debugPrint('[MenuPrincipal] Campo de búsqueda vacío.');
-      return;
-    }
-
+  void _onNavTap(int index) {
     setState(() {
-      _isSearching = true;
-      _searchResults = [];
+      _currentIndex = index;
     });
 
+    if (index == 2) {
+      _loadFavoriteGames();
+    }
+  }
+
+  Future<void> _loadUserFavoritesIfLogged() async {
     try {
-      debugPrint('[MenuPrincipal] Buscando "$query" en CheapShark...');
-
-      final rawSearch = await _gestor.searchByName(query, limit: 20);
-      debugPrint('[MenuPrincipal] rawSearch length = ${rawSearch.length}');
-
-      if (rawSearch.isEmpty) {
-        debugPrint(
-            '[MenuPrincipal] No se encontraron coincidencias para "$query".');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content:
-                    Text('No se encontraron coincidencias para "$query".')),
-          );
-        }
-        setState(() => _isSearching = false);
+      final usuario = UsuarioIniciado.usuario;
+      if (usuario == null) {
         return;
       }
 
-      final prettySearch =
-          const JsonEncoder.withIndent('  ').convert(rawSearch);
-      debugPrint('--- JSON: resultados de búsqueda ---\n$prettySearch');
+      final correo = usuario.correo;
+      final lista = await _fs.obtenerFavoritosPorCorreo(correo);
 
-      // Asumimos que searchByTitle devuelve List<Juego> según tu nuevo modelo
-      final mapped = await _gestor.searchByTitle(query, limit: 20);
+      if (mounted) {
+        setState(() {
+          _favoriteIds.clear();
+          _favoriteIds.addAll(lista);
+        });
+      } else {
+        _favoriteIds.clear();
+        _favoriteIds.addAll(lista);
+      }
 
+      await _loadFavoriteGames();
+    } catch (e, st) {
+      debugPrint('Error cargando favoritos del usuario: $e');
+      debugPrint(st.toString());
+    } finally {}
+  }
+
+  Future<void> _loadFavoriteGames() async {
+    final usuario = UsuarioIniciado.usuario;
+    if (usuario == null) {
+      if (mounted) {
+        setState(() {
+          _favoriteGames = [];
+        });
+      } else {
+        _favoriteGames = [];
+      }
+      return;
+    }
+
+    final idUsuarioStr = UsuarioIniciado.usuarioIdString;
+    if (idUsuarioStr == '0' || idUsuarioStr.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _favoriteGames = [];
+        });
+      } else {
+        _favoriteGames = [];
+      }
+      return;
+    }
+
+    if (mounted) {
       setState(() {
-        _searchResults = mapped;
+        _favoriteGames = [];
       });
+    } else {
+      _favoriteGames = [];
+    }
 
-      final first = rawSearch.first;
-      final firstGameId = first['gameID']?.toString() ?? '';
-      if (firstGameId.isNotEmpty) {
-        final rawDetail = await _gestor.fetchRawByGameId(firstGameId);
-        if (rawDetail != null) {
-          final prettyDetail =
-              const JsonEncoder.withIndent('  ').convert(rawDetail);
-          debugPrint(
-              '--- JSON: detalle del juego (gameID=$firstGameId) ---\n$prettyDetail');
-        } else {
-          debugPrint(
-              '[MenuPrincipal] No se pudo obtener detalle para gameID=$firstGameId');
+    try {
+      List<Map<String, dynamic>> registros = [];
+      try {
+        registros = await _fs.obtenerRegistrosListaPorUsuario(idUsuarioStr);
+      } catch (e) {
+        debugPrint('obtenerRegistrosListaPorUsuario no disponible o falló: $e');
+      }
+
+      final List<Juego> resultados = [];
+
+      if (registros.isNotEmpty) {
+        for (final reg in registros) {
+          try {
+            final idJuego = (reg['idJuego'] ?? '').toString();
+            final title = (reg['title'] ?? '').toString();
+            final thumb = (reg['thumb'] ?? '').toString();
+            final idCheap = (reg['idCheapshark'] ?? '').toString();
+            final idSteam = (reg['idSteam'] ?? '').toString();
+
+            final juego = Juego(
+              idCheapshark: idCheap.isNotEmpty ? idCheap : idJuego,
+              title: title.isNotEmpty ? title : 'Sin título',
+              steamApiID: idSteam,
+              normalPrice: '0',
+              steamRatingCount: '',
+              steamRatingPercent: '',
+              metaCriticScore: '',
+              metacriticLink: '',
+              releaseDate: '',
+              thumb: thumb,
+              minimoHistorico: 0.0,
+              fechaMinimoHistorico: '',
+              listaPorTienda: <DatoJuegoPorTienda>[],
+            );
+
+            if (!resultados.any((j) => j.idCheapshark == juego.idCheapshark)) {
+              resultados.add(juego);
+            }
+            _favoriteIds.add(idJuego);
+          } catch (e, st) {
+            debugPrint('Error mapeando registro lista a Juego: $e');
+            debugPrint(st.toString());
+          }
+        }
+      } else {
+        final correo = usuario.correo;
+        final ids = await _fs.obtenerFavoritosPorCorreo(correo);
+        for (final id in ids) {
+          try {
+            final juegoFromApi =
+                await _gestor.fetchByGameId(id, useCache: true);
+            if (juegoFromApi != null) {
+              if (!resultados
+                  .any((j) => j.idCheapshark == juegoFromApi.idCheapshark)) {
+                resultados.add(juegoFromApi);
+              }
+              _favoriteIds.add(juegoFromApi.idCheapshark);
+              continue;
+            }
+
+            final raw = await _gestor.fetchRawByGameId(id);
+            if (raw != null) {
+              final juego = _rawToJuego(raw, id);
+              if (!resultados
+                  .any((j) => j.idCheapshark == juego.idCheapshark)) {
+                resultados.add(juego);
+              }
+              _favoriteIds.add(juego.idCheapshark);
+            } else {
+              debugPrint('No raw detail for id=$id');
+            }
+          } catch (e, st) {
+            debugPrint('Error cargando favorito id=$id : $e');
+            debugPrint(st.toString());
+          }
         }
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  'Encontrados ${mapped.length} resultados. Desplázate para verlos.')),
-        );
+        setState(() {
+          _favoriteGames = resultados;
+        });
+      } else {
+        _favoriteGames = resultados;
       }
     } catch (e, st) {
-      debugPrint('[MenuPrincipal] Error al buscar: $e');
+      debugPrint('Error cargando registros lista desde Firestore: $e');
       debugPrint(st.toString());
+      if (mounted) {
+        setState(() {
+          _favoriteGames = [];
+        });
+      } else {
+        _favoriteGames = [];
+      }
+    } finally {
+      if (mounted) {
+        setState(() {});
+      } else {}
+    }
+  }
+
+  Juego _rawToJuego(Map<String, dynamic> raw, String gameId) {
+    try {
+      final info = (raw['info'] is Map)
+          ? Map<String, dynamic>.from(raw['info'])
+          : Map<String, dynamic>.from(raw);
+
+      final nombre =
+          (info['title'] ?? info['name'] ?? info['nombre'] ?? '').toString();
+      final thumb =
+          (info['thumb'] ?? info['thumbnail'] ?? raw['thumb'] ?? '').toString();
+
+      final precioBaseRaw =
+          (raw['cheapest'] ?? raw['cheapestPrice'] ?? raw['price'] ?? '')
+              .toString();
+
+      double minimoHistorico = 0.0;
+      final candidates = [
+        raw['cheapest'],
+        raw['cheapestPrice'],
+        raw['lowest'],
+        raw['price'],
+        raw['historicLowest'],
+        raw['minPrice'],
+      ];
+      for (final c in candidates) {
+        if (c == null) continue;
+        final s = c.toString().replaceAll(',', '.').trim();
+        final p = double.tryParse(s);
+        if (p != null) {
+          minimoHistorico = p;
+          break;
+        }
+      }
+
+      final fechaMin = (raw['cheapestTimestamp'] ??
+              raw['cheapestDate'] ??
+              raw['historicLowestDate'] ??
+              raw['date'] ??
+              '')
+          .toString();
+
+      final steamApiID =
+          (info['steamAppID'] ?? info['steamApiID'] ?? '').toString();
+      final steamRating = (info['steamRating'] ?? '').toString();
+      (info['reviewCount'] ?? info['cuantasResenas'] ?? '').toString();
+      final metaCriticsRating =
+          (info['metacritic'] ?? info['metaCriticsRating'] ?? '').toString();
+      final metacriticLink = (info['metacriticLink'] ?? '').toString();
+      final fechaDeSalida =
+          (info['releaseDate'] ?? info['release'] ?? '').toString();
+
+      return Juego(
+        idCheapshark: gameId,
+        title: nombre.isNotEmpty ? nombre : 'Sin título',
+        steamApiID: steamApiID,
+        normalPrice: precioBaseRaw,
+        steamRatingCount: steamRating, // pendiente
+        steamRatingPercent: steamRating,
+        metaCriticScore: metaCriticsRating,
+        metacriticLink: metacriticLink,
+        releaseDate: fechaDeSalida,
+
+        thumb: thumb,
+        minimoHistorico: minimoHistorico,
+        fechaMinimoHistorico: fechaMin,
+        listaPorTienda: <DatoJuegoPorTienda>[],
+      );
+    } catch (e, st) {
+      debugPrint('Error mapeando raw a Juego: $e');
+      debugPrint(st.toString());
+      return Juego(
+        idCheapshark: gameId,
+        title: raw.toString(),
+        steamApiID: '',
+        normalPrice: '0',
+        steamRatingCount: '',
+        steamRatingPercent: '',
+        metaCriticScore: '',
+        metacriticLink: '',
+        releaseDate: '',
+        thumb: '',
+        minimoHistorico: 0.0,
+        fechaMinimoHistorico: '',
+        listaPorTienda: [],
+      );
+    }
+  }
+
+  Future<void> _handleFavoritePressed(
+      BuildContext context, Juego juego, bool esFavorito) async {
+    final juegoId = juego.idCheapshark.toString();
+
+    if (esFavorito) {
+      final confirmar = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text("Eliminar favorito",
+              style: TextStyle(color: Colors.white)),
+          content: Text("¿Quieres eliminar \"${juego.title}\" de favoritos?",
+              style: const TextStyle(color: Colors.white)),
+          actions: [
+            TextButton(
+                child: const Text("Cancelar",
+                    style: TextStyle(color: Colors.white70)),
+                onPressed: () => Navigator.pop(context, false)),
+            TextButton(
+                child: const Text("Eliminar",
+                    style: TextStyle(color: Colors.redAccent)),
+                onPressed: () => Navigator.pop(context, true)),
+          ],
+        ),
+      );
+
+      if (confirmar != true) return;
+    }
+
+    final nuevoEstado = !esFavorito;
+
+    setState(() {
+      if (nuevoEstado) {
+        _favoriteIds.add(juegoId);
+        if (!_favoriteGames.any((g) => g.idCheapshark == juegoId)) {
+          _favoriteGames.add(juego);
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Añadido a favoritos: ${juego.title}')));
+      } else {
+        _favoriteIds.remove(juegoId);
+        _favoriteGames.removeWhere((g) => g.idCheapshark == juegoId);
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Eliminado de favoritos: ${juego.title}')));
+      }
+    });
+
+    final usuario = UsuarioIniciado.usuario;
+    if (usuario != null &&
+        UsuarioIniciado.sesionIniciada &&
+        !UsuarioIniciado.esAnonimo) {
+      try {
+        final correo = usuario.correo;
+        if (nuevoEstado) {
+          await _fs.addFavoritoPorCorreo(correo, juegoId);
+          await _fs.addListaRegistro(
+            idUsuario: UsuarioIniciado.usuarioIdString,
+            idJuego: juegoId,
+            idSteam: juego.steamApiID.isNotEmpty ? juego.steamApiID : null,
+            idCheapshark: juego.idCheapshark.isNotEmpty
+                ? juego.idCheapshark
+                : juego.idCheapshark,
+            title: juego.title,
+            thumb: juego.thumb.isNotEmpty ? juego.thumb : null,
+          );
+        } else {
+          await _fs.removeFavoritoPorCorreo(correo, juegoId);
+          await _fs.removeListaRegistro(
+              idUsuario: UsuarioIniciado.usuarioIdString, idJuego: juegoId);
+        }
+      } catch (e, st) {
+        debugPrint('Error actualizando favoritos en Firestore: $e');
+        debugPrint(st.toString());
+      }
+    } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text(
-                  'Error en la búsqueda. Revisa la consola (F12) para más detalles.')),
+                  'Inicia sesión (no anónimo) para guardar favoritos en tu cuenta.')),
         );
       }
+    }
+  }
+
+  Future<void> _handleTapJuego(Juego juego) async {
+    if (_isEnriching) return;
+
+    final gameIdCandidate = (juego.idCheapshark.isNotEmpty)
+        ? juego.idCheapshark
+        : juego.idCheapshark;
+    String gameId = gameIdCandidate;
+    if (gameId.isEmpty && juego.idCheapshark.isNotEmpty) {
+      gameId = juego.idCheapshark;
+    }
+
+    Juego? enriched = juego;
+
+    setState(() {
+      _isEnriching = true;
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      if (gameId.isNotEmpty) {
+        final fetched = await _gestor.fetchByGameId(gameId, useCache: true);
+        if (fetched != null) {
+          enriched = fetched;
+        } else {
+          final raw = await _gestor.fetchRawByGameId(gameId);
+          if (raw != null) {
+            enriched = _rawToJuego(raw, gameId);
+          }
+        }
+      } else if (juego.steamApiID.isNotEmpty) {
+        final fetched =
+            await _gestor.fetchByGameId(juego.steamApiID, useCache: true);
+        if (fetched != null) enriched = fetched;
+      } else {
+        if (juego.title.isNotEmpty) {
+          final list = await _gestor.searchByTitle(juego.title, limit: 1);
+          if (list.isNotEmpty) enriched = list.first;
+        }
+      }
+
+      if (Navigator.canPop(context)) Navigator.pop(context);
+    } catch (e, st) {
+      if (Navigator.canPop(context)) Navigator.pop(context);
+      debugPrint('Error obteniendo detalles al pulsar juego: $e');
+      debugPrint(st.toString());
     } finally {
       if (mounted) {
-        setState(() => _isSearching = false);
+        setState(() {
+          _isEnriching = false;
+        });
       } else {
-        _isSearching = false;
+        _isEnriching = false;
       }
     }
+
+    final toSend = enriched ?? juego;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DetalleJuego(
+          title: toSend.title.isNotEmpty ? toSend.title : 'Detalle',
+          juego: toSend,
+        ),
+      ),
+    );
   }
 
   @override
@@ -126,66 +469,16 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       body: SafeArea(
         child: Column(
           children: [
-            if (_currentIndex != 1)
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _searchController,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: const InputDecoration(
-                                  hintText: 'Buscar juego por título...',
-                                  hintStyle: TextStyle(color: Colors.white70),
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 12),
-                                ),
-                                onSubmitted: (_) =>
-                                    _performSearchAndPrintJson(),
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'Buscar',
-                              onPressed: _isSearching
-                                  ? null
-                                  : _performSearchAndPrintJson,
-                              icon: _isSearching
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2))
-                                  : const Icon(Icons.search,
-                                      color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            const TopBar(),
             Expanded(
               child: _currentIndex == 0
                   ? _buildInicioBody()
-                  : Center(child: _getBodyContent()),
+                  : _currentIndex == 2
+                      ? const ListaFavoritos()
+                      : Center(child: _getBodyContent()),
             ),
             Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFF1A1A1A),
-              ),
+              decoration: const BoxDecoration(color: Color(0xFF1A1A1A)),
               child: SafeArea(
                 top: false,
                 child: Row(
@@ -205,147 +498,11 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
   }
 
   Widget _buildInicioBody() {
-    if (_isSearching && _searchResults.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_searchResults.isNotEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: ListView.builder(
-          itemCount: _searchResults.length,
-          itemBuilder: (context, index) {
-            final juego = _searchResults[index];
-            return _buildJuegoTile(juego);
-          },
-        ),
-      );
-    }
-
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          SizedBox(height: 30),
-        ],
-      ),
+    return BuscadorWidget(
+      favoriteIds: _favoriteIds,
+      onFavoritePressed: _handleFavoritePressed,
+      onTapJuego: _handleTapJuego,
     );
-  }
-
-  Widget _buildJuegoTile(Juego juego) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: const Color(0xFF2A2A2A),
-      child: InkWell(
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Seleccionado: ${juego.nombre}')));
-          _cambiar("/screen/detalleJuego");
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 96,
-                  height: 54,
-                  child: (juego.thumb.isNotEmpty)
-                      ? Image.network(
-                          juego.thumb,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                            color: Colors.grey[800],
-                            child: const Icon(Icons.videogame_asset,
-                                color: Colors.white),
-                          ),
-                        )
-                      : Container(
-                          color: Colors.grey[800],
-                          child: const Icon(Icons.videogame_asset,
-                              color: Colors.white),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      juego.nombre,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Precio: ${_formatPriceFlexible(juego.precioBase, juego.minimoHistorico)}',
-                      style:
-                          const TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'Min: ${_formatPriceNumber(juego.minimoHistorico)}',
-                    style: const TextStyle(
-                        color: Colors.greenAccent, fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _formatPriceFlexible(
-      String precioBaseAsString, double minimoHistorico) {
-    // precioBase en tu modelo es String; intenta parsear a double.
-    final parsed = _tryParseDouble(precioBaseAsString);
-    if (parsed != null) {
-      if (parsed <= 0) return 'Gratis';
-      return parsed.toStringAsFixed(2);
-    }
-
-    // Si no hay precioBase usable, usa minimoHistorico si está definido y > 0
-    // ignore: unnecessary_null_comparison
-    if (minimoHistorico != null && minimoHistorico > 0) {
-      return minimoHistorico.toStringAsFixed(2);
-    }
-
-    return 'Gratis';
-  }
-
-  String _formatPriceNumber(double price) {
-    try {
-      if (price.isNaN) return '-';
-      if (price <= 0) return 'Gratis';
-      return price.toStringAsFixed(2);
-    } catch (_) {
-      return '-';
-    }
-  }
-
-  double? _tryParseDouble(String? s) {
-    if (s == null) return null;
-    final clean = s.replaceAll(',', '.').trim();
-    try {
-      return double.parse(clean);
-    } catch (_) {
-      return null;
-    }
   }
 
   Widget _getBodyContent() {
@@ -387,32 +544,5 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
         ),
       ),
     );
-  }
-
-  // ignore: unused_element
-  Widget _buildBoton({
-    required String texto,
-    required String ruta,
-    String tooltip = '',
-    bool enabled = true,
-  }) {
-    return FloatingActionButton.extended(
-      label: Text(texto,
-          style: const TextStyle(fontSize: 25.20, color: Colors.white)),
-      backgroundColor: enabled ? const Color(0xFFC77DFF) : Colors.grey,
-      extendedPadding: const EdgeInsets.symmetric(horizontal: 60, vertical: 12),
-      onPressed: enabled
-          ? () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, ruta);
-            }
-          : null,
-      tooltip: tooltip,
-    );
-  }
-
-  void _cambiar(String ruta) {
-    Navigator.pop(context);
-    Navigator.pushNamed(context, ruta);
   }
 }
