@@ -7,6 +7,7 @@ import 'package:proyectocomparador/models/usuarioIniciado.dart';
 import 'package:proyectocomparador/screens/buscador.dart';
 import 'package:proyectocomparador/screens/detalleJuego.dart';
 import 'package:proyectocomparador/screens/lista.dart';
+import 'package:proyectocomparador/screens/usuarioPerfil.dart';
 import 'package:proyectocomparador/widgets/appBarMenuPrincipal.dart';
 
 class MenuPrincipal extends StatefulWidget {
@@ -430,7 +431,8 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
         if (fetched != null) enriched = fetched;
       } else {
         if (juego.title.isNotEmpty) {
-          final list = await _gestor.searchByTitle(juego.title, limit: 1);
+          final list = await _gestor
+              .searchByTitle(juego.title, 0, 0, false, false, "1", limit: 1);
           if (list.isNotEmpty) enriched = list.first;
         }
       }
@@ -473,9 +475,11 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
             Expanded(
               child: _currentIndex == 0
                   ? _buildInicioBody()
-                  : _currentIndex == 2
-                      ? const ListaFavoritos()
-                      : Center(child: _getBodyContent()),
+                  : _currentIndex == 1
+                      ? const UsuarioPerfil()
+                      : _currentIndex == 2
+                          ? const ListaFavoritos()
+                          : const SizedBox.shrink(),
             ),
             Container(
               decoration: const BoxDecoration(color: Color(0xFF1A1A1A)),
@@ -502,23 +506,8 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       favoriteIds: _favoriteIds,
       onFavoritePressed: _handleFavoritePressed,
       onTapJuego: _handleTapJuego,
+      title: '',
     );
-  }
-
-  Widget _getBodyContent() {
-    switch (_currentIndex) {
-      case 0:
-        return const Text('Página de Inicio',
-            style: TextStyle(color: Colors.white, fontSize: 20));
-      case 1:
-        return const Text('Perfil de Usuario',
-            style: TextStyle(color: Colors.white, fontSize: 20));
-      case 2:
-        return const Text('Tus Listas',
-            style: TextStyle(color: Colors.white, fontSize: 20));
-      default:
-        return const SizedBox.shrink();
-    }
   }
 
   Widget _buildNavItem(

@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:proyectocomparador/firebase/firebase.dart';
 import 'package:proyectocomparador/models/sesionUsuario.dart';
-import 'package:proyectocomparador/models/usuario.dart';
 
 class IniciarSesion extends StatefulWidget {
   const IniciarSesion({super.key, required this.title});
-
   final String title;
 
   @override
@@ -13,10 +11,12 @@ class IniciarSesion extends StatefulWidget {
 }
 
 class _IniciarSesionState extends State<IniciarSesion> {
-  final TextEditingController _correoController = TextEditingController();
-  final TextEditingController _contrasenaController = TextEditingController();
-
+  final _correoController = TextEditingController();
+  final _contrasenaController = TextEditingController();
   final FirestoreService firestoreService = FirestoreService();
+
+  static const Color botonColor = Color(0xFF9D4EDD);
+  static const Color botonColorPressed = Color(0xFFB185FF);
 
   @override
   Widget build(BuildContext context) {
@@ -25,48 +25,32 @@ class _IniciarSesionState extends State<IniciarSesion> {
       body: Center(
         child: SingleChildScrollView(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
+            children: [
               const Text(
                 "Inicio de sesión",
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.white,
-                ),
+                style: TextStyle(fontSize: 20, color: Colors.white),
               ),
               const SizedBox(height: 30),
-              _campoTexto('Correo', _correoController,
-                  tipo: TextInputType.emailAddress),
+              _campoTexto('Correo o Nick', _correoController),
               const SizedBox(height: 20),
-              _campoTexto('Contraseña', _contrasenaController,
-                  esContrasena: true),
+              _campoTexto(
+                'Contraseña',
+                _contrasenaController,
+                esContrasena: true,
+              ),
               const SizedBox(height: 30),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  FloatingActionButton.extended(
-                    label: const Text(
-                      "Log in",
-                      style: TextStyle(fontSize: 20, color: Colors.white),
-                    ),
-                    backgroundColor: const Color(0xFF3C096C),
-                    onPressed: _iniciarSesion,
-                    tooltip: 'Iniciar sesión',
-                  ),
-                  const SizedBox(width: 30),
-                  FloatingActionButton.extended(
-                    label: const Text(
-                      "Registrar",
-                      style: TextStyle(fontSize: 20, color: Colors.white),
-                    ),
-                    backgroundColor: const Color(0xFF3C096C),
-                    onPressed: () {
-                      _cambiar('/screen/registroUsuarios');
-                    },
-                    tooltip: 'Ir a registro',
-                  ),
-                ],
-              )
+              _boton(
+                texto: "Log in",
+                onPressed: _loginNormal,
+              ),
+              const SizedBox(height: 15),
+              _botonGoogle(),
+              const SizedBox(height: 15),
+              _boton(
+                texto: "Registrar",
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/screen/registroUsuarios'),
+              ),
             ],
           ),
         ),
@@ -74,58 +58,123 @@ class _IniciarSesionState extends State<IniciarSesion> {
     );
   }
 
-  Widget _campoTexto(String label, TextEditingController controller,
-      {TextInputType tipo = TextInputType.text, bool esContrasena = false}) {
+  Widget _campoTexto(
+    String label,
+    TextEditingController controller, {
+    bool esContrasena = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),
       child: TextFormField(
         controller: controller,
+        obscureText: esContrasena,
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: Colors.white),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           filled: true,
-          fillColor: const Color.fromARGB(60, 255, 255, 255),
+          fillColor: Colors.white24,
         ),
-        keyboardType: tipo,
-        obscureText: esContrasena,
         style: const TextStyle(color: Colors.white),
       ),
     );
   }
 
-  Future<void> _iniciarSesion() async {
-    final correo = _correoController.text.trim();
-    final contrasena = _contrasenaController.text.trim();
-
-    if (correo.isEmpty || contrasena.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Por favor completa todos los campos.")),
-      );
-      return;
-    }
-
-    final resultado = await firestoreService.buscarUsuario(correo, contrasena);
-
-    if (resultado == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Correo o contraseña incorrectos.")),
-      );
-      return;
-    }
-
-    final Usuario usuario = resultado['usuario'];
-
-    SesionUsuario.iniciarSesion(usuario);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Bienvenido, ${usuario.nick}!")),
+  Widget _boton({
+    required String texto,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: 250,
+      height: 48,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ButtonStyle(
+          backgroundColor: MaterialStateProperty.resolveWith<Color>(
+            (states) {
+              if (states.contains(MaterialState.pressed)) {
+                return botonColorPressed;
+              }
+              return botonColor;
+            },
+          ),
+          shape: MaterialStateProperty.all(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        child: Text(
+          texto,
+          style: const TextStyle(fontSize: 16, color: Colors.white),
+        ),
+      ),
     );
-
-    _cambiar('/screen/menuPrincipal');
   }
 
-  void _cambiar(String ruta) {
-    Navigator.pushReplacementNamed(context, ruta);
+  Widget _botonGoogle() {
+    return SizedBox(
+      width: 250,
+      height: 48,
+      child: ElevatedButton(
+        onPressed: _loginGoogle,
+        style: ButtonStyle(
+          backgroundColor: MaterialStateProperty.resolveWith<Color>(
+            (states) {
+              if (states.contains(MaterialState.pressed)) {
+                return Colors.grey.shade300;
+              }
+              return Colors.white;
+            },
+          ),
+          shape: MaterialStateProperty.all(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/icon/google.png',
+              height: 20,
+              width: 20,
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Entrar con Google',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loginNormal() async {
+    final res = await firestoreService.buscarUsuario(
+      _correoController.text.trim(),
+      _contrasenaController.text.trim(),
+    );
+
+    if (res == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Credenciales incorrectas')),
+      );
+      return;
+    }
+
+    SesionUsuario.iniciarSesion(res['usuario']);
+    Navigator.pushReplacementNamed(context, '/screen/menuPrincipal');
+  }
+
+  Future<void> _loginGoogle() async {
+    final usuario = await firestoreService.signInWithGoogle(context);
+    if (usuario == null) return;
+
+    SesionUsuario.iniciarSesion(usuario);
+    Navigator.pushReplacementNamed(context, '/screen/menuPrincipal');
   }
 }

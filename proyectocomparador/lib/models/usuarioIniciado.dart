@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'package:proyectocomparador/models/sesionUsuario.dart';
 import 'package:proyectocomparador/models/usuario.dart';
 
 class UsuarioIniciado {
@@ -20,6 +21,7 @@ class UsuarioIniciado {
 
   static void iniciarSesion(Usuario usuario) {
     _usuario = usuario;
+    SesionUsuario.iniciarSesion(usuario);
     _sesionIniciada = true;
     // debug
     // print('UsuarioIniciado: id=${usuario.id}, correo=${usuario.correo}');
@@ -27,12 +29,14 @@ class UsuarioIniciado {
 
   static void iniciarSesionAnonima() {
     _usuario = _usuarioAnonimo;
+
     _sesionIniciada = true;
   }
 
   static void cerrarSesion() {
     _usuario = null;
     _sesionIniciada = false;
+    SesionUsuario.cerrarSesion();
   }
 
   static bool get esAnonimo {
@@ -52,6 +56,5 @@ class UsuarioIniciado {
 
   static void asegurarListaFavoritos() {
     if (_usuario == null) return;
-    // listaFavoritos siempre inicializada en Usuario
   }
 }

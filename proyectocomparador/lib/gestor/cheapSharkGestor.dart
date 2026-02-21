@@ -9,6 +9,7 @@ import 'package:proyectocomparador/models/juegoPorTienda.dart';
 
 class CheapSharkGestor {
   static const String _base = 'https://www.cheapshark.com/api/1.0';
+//  static const String _baseDeal = 'https://www.cheapshark.com/api/1.0/deals?';
   final http.Client _client;
   final Duration timeout;
 
@@ -17,7 +18,7 @@ class CheapSharkGestor {
   CheapSharkGestor(
       {http.Client? client, this.timeout = const Duration(seconds: 8)})
       : _client = client ?? http.Client();
-
+//buscador real
   Future<List<Juego>> searchByTitle(
     String title,
     int precio,
@@ -178,6 +179,59 @@ class CheapSharkGestor {
     }
   }
 
+  /* Future<List<Juego>> searchByTitle(String title,
+      {int limit = 5, bool useCache = true}) async {
+    final key = 'search:$title:$limit';
+    if (useCache && _cache.containsKey(key)) {
+      final cached = _cache[key] as List<Juego>;
+      debugLog('cache hit for $key (items=${cached.length})');
+      return cached;
+    }
+
+    final raw = await searchByName(title, limit: limit, useCache: useCache);
+    if (raw.isEmpty) {
+      _cache[key] = <Juego>[];
+      return [];
+    }
+
+    final results = <Juego>[];
+    for (final item in raw) {
+      final gameId = item['gameID']?.toString() ?? '';
+      final steamAppId = item['steamAppID']?.toString() ?? '';
+      final nombre = item['external']?.toString() ?? '';
+      final cheapestStr = (item['cheapest'] ?? '').toString();
+      final cheapestDouble =
+          double.tryParse(cheapestStr.replaceAll(',', '.')) ?? 0.0;
+      final thumb = item['thumb']?.toString() ?? '';
+      final releaseDate = item['releaseDate']?.toString() ?? '';
+      final steamRatingPercent = item['steamRatingPercent']?.toString() ?? '';
+      final steamRatingCount = item['steamRatingCount']?.toString() ?? '';
+
+      final juego = Juego(
+        idCheapshark: gameId,
+        title: nombre,
+        steamApiID: steamAppId,
+        normalPrice: cheapestStr.isNotEmpty ? cheapestStr : '0',
+        steamRatingPercent: steamRatingPercent,
+        steamRatingCount: steamRatingCount,
+        metaCriticScore: '',
+        metacriticLink: '',
+        releaseDate: releaseDate,
+        thumb: thumb,
+        minimoHistorico: cheapestDouble,
+        fechaMinimoHistorico: '',
+        listaPorTienda: const [],
+      );
+
+      printJuego(juego, prefix: '[SEARCH]');
+
+      results.add(juego);
+    }
+
+    _cache[key] = results;
+    return results;
+  }
+*/
   Future<Juego?> fetchByGameId(String gameId, {bool useCache = true}) async {
     final raw = await fetchRawByGameId(gameId, useCache: useCache);
     if (raw == null) return null;
@@ -218,8 +272,7 @@ class CheapSharkGestor {
     return juego;
   }
 
-/*
-  Future<List<Map<String, dynamic>>> searchByName(String title,
+  /*Future<List<Map<String, dynamic>>> searchByName(String title,
       {int limit = 5, bool useCache = true}) async {
     final key = 'raw_search:$title:$limit';
     if (useCache && _cache.containsKey(key)) {
@@ -333,5 +386,47 @@ class CheapSharkGestor {
     debugLog('  Precio oferta: ${tienda.price}');
     debugLog('  Precio base: ${tienda.retailPrice}');
     debugLog('  ----------------------------------');
+  }
+
+  void clearCache() {
+    _cache.clear();
+  }
+
+  Future<List<Juego>> completarDatosFaltantes(
+    List<Juego> juegos, {
+    bool useCache = true,
+  }) async {
+    final List<Future<Juego>> futures = [];
+
+    for (final juego in juegos) {
+      futures.add(_completarJuegoIndividual(juego, useCache: useCache));
+    }
+
+    final juegosCompletos = await Future.wait(futures);
+    return juegosCompletos;
+  }
+
+  Future<Juego> _completarJuegoIndividual(
+    Juego juego, {
+    bool useCache = true,
+  }) async {
+    if (juego.idCheapshark.isEmpty) return juego;
+
+    final raw = await fetchRawByGameId(
+      juego.idCheapshark,
+      useCache: useCache,
+    );
+    printJuego(juego, prefix: '[Incompleto]');
+    if (raw == null) return juego;
+
+    final juegoActualizado = juego.copyWith(
+      steamRatingPercent: raw['steamRatingPercent']?.toString() ?? '',
+      steamRatingCount: raw['steamRatingCount']?.toString() ?? '',
+      releaseDate: raw['releaseDate']?.toString() ?? '',
+    );
+
+    printJuego(juegoActualizado, prefix: '[COMPLETADO]');
+
+    return juegoActualizado;
   }
 }

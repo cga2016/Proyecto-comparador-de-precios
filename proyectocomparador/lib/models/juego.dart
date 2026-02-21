@@ -51,7 +51,6 @@ class Juego {
     double? minimoHistorico,
     String? fechaMinimoHistorico,
     List<DatoJuegoPorTienda>? listaPorTienda,
-    required title,
   }) {
     return Juego(
       idCheapshark: idCheapshark ?? this.idCheapshark,

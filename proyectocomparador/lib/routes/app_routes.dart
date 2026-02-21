@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:proyectocomparador/models/juego.dart';
-import 'package:proyectocomparador/screens/iniciarSesion.dart';
-import 'package:proyectocomparador/screens/menuPrincipal.dart';
-import 'package:proyectocomparador/screens/registroUsuarios.dart';
-import 'package:proyectocomparador/screens/detalleJuego.dart';
+import 'package:proyectocomparador/screens/screen.dart';
 
 class AppRoutes {
   static const String menuPrincipal = '/screen/menuPrincipal';
   static const String iniciarSesion = '/screen/iniciarSesion';
   static const String registroUsuario = '/screen/registroUsuarios';
   static const String detalleJuego = '/screen/detalleJuego';
+  static const String usuarioPerfil = '/screen/usuarioPerfil';
+  static const String plantilla = '/screen/plantilla';
+  static const String buscador = '/screen/buscador';
+  static const String lista = '/screen/lista';
 
   static final Map<String, WidgetBuilder> routes = {
     menuPrincipal: (context) => const MenuPrincipal(title: 'Menu Principal'),
@@ -17,18 +17,7 @@ class AppRoutes {
     registroUsuario: (context) => const RegistroUsuario(title: "Registro"),
   };
 
-  static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
-    if (settings.name == detalleJuego) {
-      final juego = settings.arguments as Juego;
-
-      return MaterialPageRoute(
-        builder: (_) => DetalleJuego(
-          title: "Detalle del Juego",
-          juego: juego,
-        ),
-      );
-    }
-
-    return null; // fallback
+  static void addRoutes(Map<String, WidgetBuilder> newRoutes) {
+    routes.addAll(newRoutes);
   }
 }

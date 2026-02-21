@@ -1,4 +1,3 @@
-// ignore: file_names
 import 'package:proyectocomparador/models/usuario.dart';
 
 class SesionUsuario {

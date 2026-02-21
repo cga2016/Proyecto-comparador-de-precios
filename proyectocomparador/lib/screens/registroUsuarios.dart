@@ -1,13 +1,10 @@
-// ignore_for_file: file_names
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:proyectocomparador/firebase/firebase.dart';
 import 'package:proyectocomparador/models/usuario.dart';
+import 'package:proyectocomparador/models/usuarioIniciado.dart';
 
 class RegistroUsuario extends StatefulWidget {
   const RegistroUsuario({super.key, required this.title});
-
   final String title;
 
   @override
@@ -15,21 +12,15 @@ class RegistroUsuario extends StatefulWidget {
 }
 
 class _RegistroUsuarioState extends State<RegistroUsuario> {
-  final TextEditingController _nickController = TextEditingController();
-  final TextEditingController _correoController = TextEditingController();
-  final TextEditingController _contrasenaController = TextEditingController();
-  final TextEditingController _confirmController = TextEditingController();
+  final _nick = TextEditingController();
+  final _correo = TextEditingController();
+  final _pass = TextEditingController();
+  final _confirm = TextEditingController();
 
   final FirestoreService firestoreService = FirestoreService();
 
-  @override
-  void dispose() {
-    _nickController.dispose();
-    _correoController.dispose();
-    _contrasenaController.dispose();
-    _confirmController.dispose();
-    super.dispose();
-  }
+  static const Color botonColor = Color(0xFFC77DFF);
+  static const Color botonColorPressed = Color(0xFFDDB4FF);
 
   @override
   Widget build(BuildContext context) {
@@ -38,49 +29,29 @@ class _RegistroUsuarioState extends State<RegistroUsuario> {
       body: Center(
         child: SingleChildScrollView(
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
+            children: [
               const Text(
-                "Registro de usuarios",
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.white,
-                ),
+                "Registro",
+                style: TextStyle(color: Colors.white, fontSize: 20),
               ),
               const SizedBox(height: 30),
-              _campoTexto('Nick', _nickController),
-              const SizedBox(height: 20),
-              _campoTexto('Correo', _correoController,
-                  tipo: TextInputType.emailAddress),
-              const SizedBox(height: 20),
-              _campoTexto('Contraseña', _contrasenaController,
-                  esContrasena: true),
-              const SizedBox(height: 20),
-              _campoTexto('Confirmar contraseña', _confirmController,
-                  esContrasena: true),
-              const SizedBox(height: 30),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  FloatingActionButton.extended(
-                    label: const Text("Registrar",
-                        style: TextStyle(fontSize: 20, color: Colors.white)),
-                    backgroundColor: const Color(0xFF5A189A),
-                    onPressed: _registrarUsuario,
-                    tooltip: 'Registrar usuario',
-                  ),
-                  const SizedBox(width: 30),
-                  FloatingActionButton.extended(
-                    label: const Text("Regresar",
-                        style: TextStyle(fontSize: 20, color: Colors.white)),
-                    backgroundColor: const Color(0xFF5A189A),
-                    onPressed: () {
-                      _cambiar('/screen/iniciarSesion');
-                    },
-                    tooltip: 'Volver a Log in',
-                  ),
-                ],
-              )
+              _campo('Nick', _nick),
+              _campo('Correo', _correo),
+              _campo('Contraseña', _pass, pass: true),
+              _campo('Confirmar contraseña', _confirm, pass: true),
+              const SizedBox(height: 25),
+              _boton(
+                texto: "Registrar",
+                onPressed: _registroNormal,
+              ),
+              const SizedBox(height: 15),
+              _botonGoogle(),
+              const SizedBox(height: 15),
+              _boton(
+                texto: "Volver a inicio de sesión",
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/screen/iniciarSesion'),
+              ),
             ],
           ),
         ),
@@ -88,102 +59,133 @@ class _RegistroUsuarioState extends State<RegistroUsuario> {
     );
   }
 
-  Widget _campoTexto(String label, TextEditingController controller,
-      {TextInputType tipo = TextInputType.text, bool esContrasena = false}) {
+  Widget _campo(String label, TextEditingController c, {bool pass = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: TextFormField(
-        controller: controller,
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 8),
+      child: TextField(
+        controller: c,
+        obscureText: pass,
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: Colors.white),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           filled: true,
-          fillColor: const Color.fromARGB(60, 255, 255, 255),
+          fillColor: Colors.white24,
         ),
-        keyboardType: tipo,
-        obscureText: esContrasena,
         style: const TextStyle(color: Colors.white),
       ),
     );
   }
 
-  void _cambiar(String ruta) {
-    Navigator.pop(context);
-    Navigator.pushNamed(context, ruta);
+  Widget _boton({
+    required String texto,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: 250,
+      height: 48,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ButtonStyle(
+          backgroundColor: MaterialStateProperty.resolveWith<Color>(
+            (states) {
+              if (states.contains(MaterialState.pressed)) {
+                return botonColorPressed;
+              }
+              return botonColor;
+            },
+          ),
+          shape: MaterialStateProperty.all(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        child: Text(
+          texto,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16, color: Colors.white),
+        ),
+      ),
+    );
   }
 
-  Future<void> _registrarUsuario() async {
-    final nick = _nickController.text.trim();
-    final correo = _correoController.text.trim();
-    final contrasena = _contrasenaController.text.trim();
-    final confirmar = _confirmController.text.trim();
+  Widget _botonGoogle() {
+    return SizedBox(
+      width: 250,
+      height: 48,
+      child: ElevatedButton(
+        onPressed: _registroGoogle,
+        style: ButtonStyle(
+          backgroundColor: MaterialStateProperty.resolveWith<Color>(
+            (states) {
+              if (states.contains(MaterialState.pressed)) {
+                return Colors.grey.shade300;
+              }
+              return Colors.white;
+            },
+          ),
+          shape: MaterialStateProperty.all(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/icon/google.png',
+              height: 20,
+              width: 20,
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Registrar con Google',
+              style: TextStyle(fontSize: 16, color: Colors.black87),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-    final List<String> faltan = [];
-    if (nick.isEmpty) faltan.add('Nick');
-    if (correo.isEmpty) faltan.add('Correo');
-    if (contrasena.isEmpty) faltan.add('Contraseña');
-    if (confirmar.isEmpty) faltan.add('Confirmar contraseña');
-
-    if (faltan.isNotEmpty) {
-      final texto = 'Por favor completa: ${faltan.join(', ')}.';
-      if (!mounted) return;
+  Future<void> _registroNormal() async {
+    if (_pass.text != _confirm.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(texto)),
+        const SnackBar(content: Text('Las contraseñas no coinciden')),
       );
       return;
     }
 
-    if (contrasena != confirmar) {
-      if (!mounted) return;
+    final correo = _correo.text.trim();
+
+    if (await firestoreService.correoExiste(correo)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Las contraseñas no coinciden.')),
+        const SnackBar(content: Text('Ya existe un usuario con ese correo')),
       );
       return;
     }
 
-    try {
-      final existe = await firestoreService.correoExiste(correo);
-      if (existe) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('El correo ya está registrado.')),
-        );
-        return;
-      }
+    final id = await firestoreService.obtenerSiguienteId();
 
-      final nuevoId = await firestoreService.obtenerSiguienteId();
+    final nuevoUsuario = Usuario(
+      id: id,
+      nick: _nick.text.trim(),
+      correo: correo,
+      contrasena: _pass.text.trim(),
+      imagenRuta: 'default.png',
+    );
 
-      final nuevoUsuario = Usuario(
-        id: nuevoId,
-        nick: nick,
-        correo: correo,
-        contrasena: contrasena,
-        imagenRuta: 'default.png',
-      );
+    await firestoreService.addUsuario(nuevoUsuario);
+    UsuarioIniciado.iniciarSesion(nuevoUsuario);
 
-      await firestoreService.addUsuario(nuevoUsuario);
+    Navigator.pushReplacementNamed(context, '/screen/menuPrincipal');
+  }
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuario registrado correctamente.')),
-      );
+  Future<void> _registroGoogle() async {
+    final usuario = await firestoreService.registrarConGoogle(context);
 
-      _nickController.clear();
-      _correoController.clear();
-      _contrasenaController.clear();
-      _confirmController.clear();
-      _cambiar('/screen/iniciarSesion');
-    } on FirebaseException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error Firebase: ${e.code} - ${e.message}')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al registrar: ${e.toString()}')),
-      );
-    }
+    if (usuario == null) return;
+
+    Navigator.pushReplacementNamed(context, '/screen/menuPrincipal');
   }
 }

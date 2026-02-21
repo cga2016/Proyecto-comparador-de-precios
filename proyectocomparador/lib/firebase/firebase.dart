@@ -1,6 +1,9 @@
 // ignore_for_file: unnecessary_type_check
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:proyectocomparador/models/usuario.dart';
 import 'package:proyectocomparador/models/usuarioIniciado.dart';
 
@@ -10,6 +13,7 @@ class FirestoreService {
   final String collectionName = 'user';
   final String contadorDocPath = 'contadores/usuarios';
   final String listaCollection = 'lista';
+  FirebaseAuth get _auth => FirebaseAuth.instance;
 
   Future<void> addUsuario(Usuario usuario) async {
     await _firestore.collection(collectionName).add(usuario.toJson());
@@ -78,14 +82,14 @@ class FirestoreService {
     }
   }
 
-  Future<bool> correoExiste(String correo) async {
+  /*Future<bool> correoExiste(String correo) async {
     final snapshot = await _firestore
         .collection(collectionName)
         .where('correo', isEqualTo: correo)
         .limit(1)
         .get();
     return snapshot.docs.isNotEmpty;
-  }
+  }*/
 
   // Operaciones en user.listaFavoritos
   Future<void> addFavoritoPorDocId(String docId, String favorito) async {
@@ -172,7 +176,6 @@ class FirestoreService {
       'timestamp': FieldValue.serverTimestamp(),
     };
 
-    // añadimos campos extra si se proporcionan
     if (idSteam != null) data['idSteam'] = idSteam;
     if (idCheapshark != null) data['idCheapshark'] = idCheapshark;
     if (title != null) data['title'] = title;
@@ -272,5 +275,137 @@ class FirestoreService {
     }
 
     return result.toSet().toList();
+  }
+
+  Future<Usuario?> signInWithGoogle(BuildContext context) async {
+    final googleSignIn = GoogleSignIn(scopes: ['email']);
+    await googleSignIn.signOut();
+
+    final googleUser = await googleSignIn.signIn();
+    if (googleUser == null) return null;
+
+    final googleAuth = await googleUser.authentication;
+
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    final userCred = await _auth.signInWithCredential(credential);
+    final firebaseUser = userCred.user;
+
+    if (firebaseUser == null || firebaseUser.email == null) return null;
+
+    final snap = await _firestore
+        .collection(collectionName)
+        .where('correo', isEqualTo: firebaseUser.email)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isNotEmpty) {
+      final data = snap.docs.first.data();
+
+      if (!data.containsKey('id')) {
+        throw Exception('Usuario sin ID en Firestore');
+      }
+
+      final usuario = Usuario.fromJson(data);
+
+      UsuarioIniciado.iniciarSesion(usuario);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sesión iniciada correctamente')),
+      );
+
+      return usuario;
+    }
+
+    final nuevoId = await obtenerSiguienteId();
+
+    final nuevoUsuario = Usuario(
+      id: nuevoId,
+      nick: firebaseUser.displayName ?? 'UsuarioGoogle',
+      correo: firebaseUser.email!,
+      contrasena: '',
+      imagenRuta: firebaseUser.photoURL ?? 'default.png',
+    );
+
+    await addUsuario(nuevoUsuario);
+
+    print('USUARIO ACTUAL → '
+        'id=${UsuarioIniciado.usuario?.id}, '
+        'correo=${UsuarioIniciado.usuario?.correo}, '
+        'anonimo=${UsuarioIniciado.esAnonimo}');
+
+    UsuarioIniciado.iniciarSesion(nuevoUsuario);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Cuenta creada y sesión iniciada')),
+    );
+
+    return nuevoUsuario;
+  }
+
+  Future<Usuario?> registrarConGoogle(BuildContext context) async {
+    final googleSignIn = GoogleSignIn(scopes: ['email']);
+    await googleSignIn.signOut();
+
+    final googleUser = await googleSignIn.signIn();
+    if (googleUser == null) return null;
+
+    final googleAuth = await googleUser.authentication;
+
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    final userCred = await _auth.signInWithCredential(credential);
+    final firebaseUser = userCred.user;
+
+    if (firebaseUser == null || firebaseUser.email == null) return null;
+    final snap = await _firestore
+        .collection(collectionName)
+        .where('correo', isEqualTo: firebaseUser.email)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ya existe un usuario con esta cuenta')),
+      );
+
+      await _auth.signOut();
+
+      return null;
+    }
+    final nuevoId = await obtenerSiguienteId();
+
+    final nuevoUsuario = Usuario(
+      id: nuevoId,
+      nick: firebaseUser.displayName ?? 'UsuarioGoogle',
+      correo: firebaseUser.email!,
+      contrasena: '',
+      imagenRuta: firebaseUser.photoURL ?? 'default.png',
+    );
+
+    await addUsuario(nuevoUsuario);
+
+    UsuarioIniciado.iniciarSesion(nuevoUsuario);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Cuenta creada correctamente')),
+    );
+
+    return nuevoUsuario;
+  }
+
+  Future<bool> correoExiste(String correo) async {
+    final snap = await _firestore
+        .collection(collectionName)
+        .where('correo', isEqualTo: correo)
+        .limit(1)
+        .get();
+    return snap.docs.isNotEmpty;
   }
 }

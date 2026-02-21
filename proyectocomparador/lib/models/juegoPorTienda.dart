@@ -15,7 +15,6 @@ class DatoJuegoPorTienda {
 
   get precio => null;
 
-  // Convertir a mapa (para Firestore o JSON)
   Map<String, dynamic> toJson() {
     return {
       'id': storeId,
@@ -25,7 +24,6 @@ class DatoJuegoPorTienda {
     };
   }
 
-  // Crear instancia desde un mapa
   factory DatoJuegoPorTienda.fromJson(Map<String, dynamic> json) {
     return DatoJuegoPorTienda(
       storeId: json['id'],

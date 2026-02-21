@@ -38,7 +38,7 @@ class FavoritesListView extends StatelessWidget {
     }
 
     return Container(
-      color: const Color(0xFF7B2CBF), // FONDO DE LA LISTA
+      color: const Color(0xFF7B2CBF),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: ListView.builder(
@@ -49,7 +49,7 @@ class FavoritesListView extends StatelessWidget {
             final esFavorito = favoriteIds.contains(juegoId);
 
             return Card(
-              color: const Color(0xFF10002B), // FONDO DE CADA ITEM
+              color: const Color(0xFF10002B),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
