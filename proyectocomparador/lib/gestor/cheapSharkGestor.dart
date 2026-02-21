@@ -17,54 +17,165 @@ class CheapSharkGestor {
   CheapSharkGestor(
       {http.Client? client, this.timeout = const Duration(seconds: 8)})
       : _client = client ?? http.Client();
-  Future<List<Juego>> searchByTitle(String title,
-      {int limit = 5, bool useCache = true}) async {
-    final key = 'search:$title:$limit';
+
+  Future<List<Juego>> searchByTitle(
+    String title,
+    int precio,
+    int valoraciones,
+    bool oferta,
+    bool filtrar,
+    String storeID, {
+    int limit = 5,
+    bool useCache = true,
+  }) async {
+    final key =
+        'search_deals:$title:$precio:$valoraciones:$oferta:$limit:$filtrar:$storeID';
+
     if (useCache && _cache.containsKey(key)) {
-      final cached = _cache[key] as List<Juego>;
+      final cached = List<Juego>.from(_cache[key]);
       debugLog('cache hit for $key (items=${cached.length})');
       return cached;
     }
 
-    final raw = await searchByName(title, limit: limit, useCache: useCache);
+    final raw = await searchByName(
+      title,
+      precio,
+      valoraciones,
+      oferta,
+      filtrar,
+      storeID,
+      limit: limit,
+      useCache: useCache,
+    );
+
     if (raw.isEmpty) {
       _cache[key] = <Juego>[];
       return [];
     }
 
     final results = <Juego>[];
+
     for (final item in raw) {
       final gameId = item['gameID']?.toString() ?? '';
       final steamAppId = item['steamAppID']?.toString() ?? '';
-      final nombre = item['external']?.toString() ?? '';
-      final cheapestStr = (item['cheapest'] ?? '').toString();
-      final cheapestDouble =
-          double.tryParse(cheapestStr.replaceAll(',', '.')) ?? 0.0;
+      final nombre = item['title']?.toString() ?? '';
+      final normalPrice = item['normalPrice']?.toString() ?? '0';
+      final salePrice = item['salePrice']?.toString() ?? '0';
       final thumb = item['thumb']?.toString() ?? '';
+      final metacriticScore = item['metacriticScore']?.toString() ?? '';
+      final metacriticLink = item['metacriticLink']?.toString() ?? '';
+      final steamRatingPercent = item['steamRatingPercent']?.toString() ?? '';
+      final steamRatingCount = item['steamRatingCount']?.toString() ?? '';
+      final releaseDateUnix = item['releaseDate'] ?? 0;
+
+      String releaseDate = '';
+      if (releaseDateUnix is int && releaseDateUnix > 0) {
+        final date =
+            DateTime.fromMillisecondsSinceEpoch(releaseDateUnix * 1000);
+        releaseDate = date.toIso8601String();
+      }
+
+      final minimoHistorico =
+          double.tryParse(salePrice.replaceAll(',', '.')) ?? 0.0;
 
       final juego = Juego(
         idCheapshark: gameId,
         title: nombre,
         steamApiID: steamAppId,
-        normalPrice: cheapestStr.isNotEmpty ? cheapestStr : '0',
-        steamRatingPercent: '',
-        steamRatingCount: '',
-        metaCriticScore: '',
-        metacriticLink: '',
-        releaseDate: '',
+        normalPrice: normalPrice,
+        steamRatingPercent: steamRatingPercent,
+        steamRatingCount: steamRatingCount,
+        metaCriticScore: metacriticScore,
+        metacriticLink: metacriticLink,
+        releaseDate: releaseDate,
         thumb: thumb,
-        minimoHistorico: cheapestDouble,
+        minimoHistorico: minimoHistorico,
         fechaMinimoHistorico: '',
         listaPorTienda: const [],
       );
 
-      printJuego(juego, prefix: '[SEARCH]');
-
+      printJuego(juego, prefix: '[DEALS]');
       results.add(juego);
     }
 
     _cache[key] = results;
     return results;
+  }
+
+  Future<List<Map<String, dynamic>>> searchByName(
+    String title,
+    int precio,
+    int valoraciones,
+    bool oferta,
+    bool filtrar,
+    String storeID, {
+    int limit = 5,
+    bool useCache = true,
+  }) async {
+    final key =
+        'raw_deals:$title:$precio:$valoraciones:$oferta:$limit:$filtrar:$storeID';
+
+    if (useCache && _cache.containsKey(key)) {
+      final cached = List<Map<String, dynamic>>.from(_cache[key]);
+      debugLog('cache hit for $key (items=${cached.length})');
+      return cached;
+    }
+
+    final queryParams = {
+      'title': title,
+      'pageSize': limit.toString(),
+    };
+
+    if (precio > 0 && precio < 60) {
+      queryParams['upperPrice'] = precio.toString();
+    }
+
+    if (valoraciones > 40) {
+      queryParams['steamRating'] = valoraciones.toString();
+    }
+
+    if (oferta) {
+      queryParams['onSale'] = '1';
+    } else {
+      queryParams['onSale'] = '0';
+    }
+
+    if (storeID != "0") {
+      queryParams['storeID'] = storeID;
+    }
+
+    final url = Uri.https(
+      'www.cheapshark.com',
+      '/api/1.0/deals',
+      queryParams,
+    );
+
+    debugLog('HTTP GET $url');
+
+    try {
+      final res = await _client.get(url).timeout(timeout);
+
+      if (res.statusCode != 200) {
+        debugLog('Non-200 status: ${res.statusCode}');
+        return [];
+      }
+
+      final List<dynamic> body = json.decode(res.body);
+
+      final rawList = body
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+      _cache[key] = rawList;
+      return rawList;
+    } on TimeoutException {
+      debugLog('Timeout on $url');
+      return [];
+    } catch (e, st) {
+      debugLog('Error on searchByName: $e\n$st');
+      return [];
+    }
   }
 
   Future<Juego?> fetchByGameId(String gameId, {bool useCache = true}) async {
@@ -107,6 +218,7 @@ class CheapSharkGestor {
     return juego;
   }
 
+/*
   Future<List<Map<String, dynamic>>> searchByName(String title,
       {int limit = 5, bool useCache = true}) async {
     final key = 'raw_search:$title:$limit';
@@ -150,7 +262,7 @@ class CheapSharkGestor {
       return <Map<String, dynamic>>[];
     }
   }
-
+*/
   Future<Map<String, dynamic>?> fetchRawByGameId(String gameId,
       {bool useCache = true}) async {
     final key = 'raw_game:$gameId';

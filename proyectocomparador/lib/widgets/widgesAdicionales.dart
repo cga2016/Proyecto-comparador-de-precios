@@ -62,7 +62,7 @@ class FavoritesListView extends StatelessWidget {
                           juego.thumb,
                           width: 56,
                           height: 56,
-                          fit: BoxFit.contain, // evitar recortar la imagen
+                          fit: BoxFit.contain,
                           errorBuilder: (c, e, s) {
                             return Container(
                               width: 56,

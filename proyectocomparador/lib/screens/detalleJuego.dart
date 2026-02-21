@@ -40,7 +40,6 @@ class _DetalleJuegoState extends State<DetalleJuego> {
 
     _carouselController = PageController(viewportFraction: 0.92);
 
-    // Imprimir por consola todos los datos del juego (usa el método que añadiste en Juego)
     try {} catch (e, st) {
       debugPrint('Error llamando a juego.debugPrint(): $e\n$st');
     }
