@@ -20,6 +20,7 @@ class Juego {
   final double minimoHistorico;
   final String fechaMinimoHistorico;
   final List<DatoJuegoPorTienda> listaPorTienda;
+  final String storeid;
 
   Juego({
     required this.idCheapshark,
@@ -34,6 +35,7 @@ class Juego {
     required this.thumb,
     required this.minimoHistorico,
     required this.fechaMinimoHistorico,
+    required this.storeid,
     this.listaPorTienda = const [],
   });
 
@@ -66,6 +68,7 @@ class Juego {
       minimoHistorico: minimoHistorico ?? this.minimoHistorico,
       fechaMinimoHistorico: fechaMinimoHistorico ?? this.fechaMinimoHistorico,
       listaPorTienda: listaPorTienda ?? this.listaPorTienda,
+      storeid: storeid,
     );
   }
 
@@ -108,6 +111,7 @@ class Juego {
                   DatoJuegoPorTienda.fromJson(Map<String, dynamic>.from(e)))
               .toList() ??
           [],
+      storeid: json['storeID']?.toString() ?? '',
     );
   }
 }

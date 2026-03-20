@@ -35,6 +35,12 @@ dependencies:
   cloud_firestore: ^5.4.0
   firebase_auth: ^5.2.0
   google_sign_in: ^6.2.1
+  video_player: ^2.8.2
+  chewie: ^1.7.5
+  flutter_html: ^3.0.0
+  flutter_launcher_icons: ^0.13.1 
+  flutter_local_notifications: ^17.0.0
+  shared_preferences: ^2.2.2
   
 
 
@@ -54,6 +60,11 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^4.0.0
+
+flutter_icons:
+ android: true
+ ios: true
+ image_path: "assets/icon/logoComparador.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

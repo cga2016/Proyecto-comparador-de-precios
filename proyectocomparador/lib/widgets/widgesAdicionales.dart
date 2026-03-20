@@ -12,12 +12,14 @@ class FavoritesListView extends StatelessWidget {
   final Set<String> favoriteIds;
   final FavoriteToggleCallback onFavoritePressed;
   final JuegoTapCallback onTapJuego;
+  final Map<String, String> iconosTiendas;
 
   const FavoritesListView({
     super.key,
     required this.isSearching,
     required this.favoriteGames,
     required this.favoriteIds,
+    required this.iconosTiendas,
     required this.onFavoritePressed,
     required this.onTapJuego,
   });
@@ -45,8 +47,9 @@ class FavoritesListView extends StatelessWidget {
           itemCount: favoriteGames.length,
           itemBuilder: (context, index) {
             final juego = favoriteGames[index];
-            final juegoId = juego.idCheapshark.toString();
-            final esFavorito = favoriteIds.contains(juegoId);
+            final key = "${juego.idCheapshark}_${juego.storeid}";
+            final esFavorito = favoriteIds.contains(key);
+            final iconoTienda = iconosTiendas[juego.storeid];
 
             return Card(
               color: const Color(0xFF10002B),
@@ -79,9 +82,26 @@ class FavoritesListView extends StatelessWidget {
                           child: const Icon(Icons.videogame_asset),
                         ),
                 ),
-                title: Text(
-                  juego.title,
-                  style: const TextStyle(color: Colors.white),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        juego.title,
+                        style: const TextStyle(color: Colors.white),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (iconoTienda != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Image.network(
+                          iconoTienda,
+                          width: 22,
+                          height: 22,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                  ],
                 ),
                 trailing: IconButton(
                   icon: Icon(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:proyectocomparador/firebase/firebase.dart';
 import 'package:proyectocomparador/gestor/cheapSharkGestor.dart';
+import 'package:proyectocomparador/models/dataJuego.dart';
 import 'package:proyectocomparador/models/juego.dart';
 import 'package:proyectocomparador/models/juegoPorTienda.dart';
 import 'package:proyectocomparador/models/usuarioIniciado.dart';
@@ -9,6 +10,7 @@ import 'package:proyectocomparador/screens/detalleJuego.dart';
 import 'package:proyectocomparador/screens/lista.dart';
 import 'package:proyectocomparador/screens/usuarioPerfil.dart';
 import 'package:proyectocomparador/widgets/appBarMenuPrincipal.dart';
+import 'package:proyectocomparador/widgets/gestorNotificaciones.dart';
 
 class MenuPrincipal extends StatefulWidget {
   const MenuPrincipal({super.key, required this.title});
@@ -31,10 +33,13 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
 
   List<Juego> _favoriteGames = [];
 
+  bool _hayOfertasNotificaciones = false;
+
   @override
   void initState() {
     super.initState();
     _loadUserFavoritesIfLogged();
+    _comprobarNotificaciones();
   }
 
   @override
@@ -42,6 +47,51 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
     _searchController.dispose();
     _gestor.dispose();
     super.dispose();
+  }
+
+  Future<void> _comprobarNotificaciones() async {
+    final usuario = UsuarioIniciado.usuario;
+    if (usuario == null) return;
+
+    try {
+      final notificaciones = await _fs
+          .obtenerNotificacionesUsuario(UsuarioIniciado.usuarioIdString);
+      int contador = 0;
+      for (final n in notificaciones) {
+        final idCheap = n["IdCheapshark"] ?? "";
+        final idTienda = n["idTienda"] ?? "";
+        final tipo = n["TipoNotificacion"] ?? "0";
+        final precioDeseado =
+            double.tryParse(n["precioDeseado"]?.toString() ?? "") ?? 0;
+
+        final tiendas = await _gestor.fetchDealsByCheapSharkId(idCheap);
+
+        final tienda = tiendas.firstWhere(
+          (t) => t.storeId == idTienda,
+          orElse: () => tiendas.first,
+        );
+
+        final precioOferta = tienda.price;
+
+        if (tipo == "0" && precioOferta < tienda.retailPrice) {
+          setState(() => _hayOfertasNotificaciones = true);
+          contador++;
+        }
+
+        if (tipo == "1" && precioOferta <= precioDeseado) {
+          setState(() => _hayOfertasNotificaciones = true);
+          contador++;
+        }
+      }
+
+      await GestorNotificaciones.comprobarYMostrarNotificacion(
+        tieneNotificaciones: _hayOfertasNotificaciones,
+        idUsuario: UsuarioIniciado.usuarioIdString,
+        cantidadJuegos: contador,
+      );
+    } catch (e) {
+      debugPrint("Error comprobando notificaciones: $e");
+    }
   }
 
   void _onNavTap(int index) {
@@ -132,6 +182,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
             final thumb = (reg['thumb'] ?? '').toString();
             final idCheap = (reg['idCheapshark'] ?? '').toString();
             final idSteam = (reg['idSteam'] ?? '').toString();
+            final tienda = (reg['idTienda'] ?? '').toString();
 
             final juego = Juego(
               idCheapshark: idCheap.isNotEmpty ? idCheap : idJuego,
@@ -147,12 +198,14 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
               minimoHistorico: 0.0,
               fechaMinimoHistorico: '',
               listaPorTienda: <DatoJuegoPorTienda>[],
+              storeid: tienda,
             );
 
             if (!resultados.any((j) => j.idCheapshark == juego.idCheapshark)) {
               resultados.add(juego);
             }
-            _favoriteIds.add(idJuego);
+            // final tienda = (reg['idTienda'] ?? '').toString();
+            _favoriteIds.add("${idJuego}_$tienda");
           } catch (e, st) {
             debugPrint('Error mapeando registro lista a Juego: $e');
             debugPrint(st.toString());
@@ -266,22 +319,23 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       final metacriticLink = (info['metacriticLink'] ?? '').toString();
       final fechaDeSalida =
           (info['releaseDate'] ?? info['release'] ?? '').toString();
+      final idTienda = (info['storeID'] ?? info['storeID'] ?? '').toString();
 
       return Juego(
         idCheapshark: gameId,
         title: nombre.isNotEmpty ? nombre : 'Sin título',
         steamApiID: steamApiID,
         normalPrice: precioBaseRaw,
-        steamRatingCount: steamRating, // pendiente
+        steamRatingCount: steamRating,
         steamRatingPercent: steamRating,
         metaCriticScore: metaCriticsRating,
         metacriticLink: metacriticLink,
         releaseDate: fechaDeSalida,
-
         thumb: thumb,
         minimoHistorico: minimoHistorico,
         fechaMinimoHistorico: fechaMin,
         listaPorTienda: <DatoJuegoPorTienda>[],
+        storeid: idTienda,
       );
     } catch (e, st) {
       debugPrint('Error mapeando raw a Juego: $e');
@@ -300,6 +354,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
         minimoHistorico: 0.0,
         fechaMinimoHistorico: '',
         listaPorTienda: [],
+        storeid: '',
       );
     }
   }
@@ -337,14 +392,16 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
 
     setState(() {
       if (nuevoEstado) {
-        _favoriteIds.add(juegoId);
+        final key = "${juegoId}_${juego.storeid}";
+        _favoriteIds.add(key);
         if (!_favoriteGames.any((g) => g.idCheapshark == juegoId)) {
           _favoriteGames.add(juego);
         }
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Añadido a favoritos: ${juego.title}')));
       } else {
-        _favoriteIds.remove(juegoId);
+        final key = "${juegoId}_${juego.storeid}";
+        _favoriteIds.remove(key);
         _favoriteGames.removeWhere((g) => g.idCheapshark == juegoId);
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Eliminado de favoritos: ${juego.title}')));
@@ -363,16 +420,30 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
             idUsuario: UsuarioIniciado.usuarioIdString,
             idJuego: juegoId,
             idSteam: juego.steamApiID.isNotEmpty ? juego.steamApiID : null,
-            idCheapshark: juego.idCheapshark.isNotEmpty
-                ? juego.idCheapshark
-                : juego.idCheapshark,
+            idCheapshark:
+                juego.idCheapshark.isNotEmpty ? juego.idCheapshark : juegoId,
+            idTienda: juego.storeid.isNotEmpty ? juego.storeid : null,
             title: juego.title,
             thumb: juego.thumb.isNotEmpty ? juego.thumb : null,
           );
         } else {
-          await _fs.removeFavoritoPorCorreo(correo, juegoId);
-          await _fs.removeListaRegistro(
-              idUsuario: UsuarioIniciado.usuarioIdString, idJuego: juegoId);
+          try {
+            await Future.wait([
+              _fs.removeFavoritoPorCorreo(correo, juegoId),
+              _fs.removeListaRegistro(
+                idUsuario: UsuarioIniciado.usuarioIdString,
+                idJuego: juegoId,
+                idTienda: juego.storeid,
+              ),
+              _fs.borrarNotificacion(
+                idUser: UsuarioIniciado.usuarioIdString,
+                idCheapshark: juegoId,
+                idTienda: juego.storeid,
+              ),
+            ]);
+          } catch (e) {
+            debugPrint('Error eliminando favorito + lista + notificación: $e');
+          }
         }
       } catch (e, st) {
         debugPrint('Error actualizando favoritos en Firestore: $e');
@@ -432,7 +503,7 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       } else {
         if (juego.title.isNotEmpty) {
           final list = await _gestor
-              .searchByTitle(juego.title, 0, 0, false, false, "1", limit: 1);
+              .searchByTitle(juego.title, 0, 0, false, false, ["1"], limit: 1);
           if (list.isNotEmpty) enriched = list.first;
         }
       }
@@ -452,13 +523,37 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
       }
     }
 
+    List<DatoJuegoPorTienda> tiendas = [];
+
+    if (gameId.isNotEmpty) {
+      debugPrint(" Buscando tiendas para juego $gameId");
+
+      tiendas = await _gestor.fetchDealsByCheapSharkId(gameId);
+
+      debugPrint("TIENDAS ENCONTRADAS: ${tiendas.length}");
+
+      for (final t in tiendas) {
+        debugPrint(
+            "🏪 StoreID: ${t.storeId} | Precio: ${t.price} | Precio base: ${t.retailPrice}");
+      }
+    }
     final toSend = enriched ?? juego;
+
+    DataJuego? steamData;
+
+    if (toSend.steamApiID.isNotEmpty) {
+      debugPrint(" Buscando datos completos en Steam...");
+      steamData =
+          await _gestor.fetchSteamGameData(toSend.steamApiID, useCache: true);
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => DetalleJuego(
           title: toSend.title.isNotEmpty ? toSend.title : 'Detalle',
           juego: toSend,
+          steamData: steamData,
         ),
       ),
     );
@@ -467,18 +562,21 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: const Color(0xFF7B2CBF),
       body: SafeArea(
         child: Column(
           children: [
-            const TopBar(),
+            TopBar(tieneNotificaciones: _hayOfertasNotificaciones),
             Expanded(
               child: _currentIndex == 0
                   ? _buildInicioBody()
                   : _currentIndex == 1
                       ? const UsuarioPerfil()
                       : _currentIndex == 2
-                          ? const ListaFavoritos()
+                          ? ListaFavoritos(
+                              onFavoritosActualizados: _recargarFavoritos,
+                            )
                           : const SizedBox.shrink(),
             ),
             Container(
@@ -499,6 +597,14 @@ class _MenuPrincipalState extends State<MenuPrincipal> {
         ),
       ),
     );
+  }
+
+  void _recargarFavoritos() async {
+    await _loadUserFavoritesIfLogged();
+
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Widget _buildInicioBody() {

@@ -91,7 +91,7 @@ class FirestoreService {
     return snapshot.docs.isNotEmpty;
   }*/
 
-  // Operaciones en user.listaFavoritos
+  // user.listaFavoritos
   Future<void> addFavoritoPorDocId(String docId, String favorito) async {
     await _firestore.collection(collectionName).doc(docId).update({
       'listaFavoritos': FieldValue.arrayUnion([favorito])
@@ -164,15 +164,20 @@ class FirestoreService {
     required String idJuego,
     String? idSteam,
     String? idCheapshark,
+    String? idTienda,
     String? title,
     String? thumb,
   }) async {
     final ref = _firestore.collection(listaCollection);
-    final docId = '${idUsuario}_$idJuego';
+
+    final tienda = idTienda ?? "0";
+
+    final docId = '${idUsuario}_${idJuego}_$tienda';
 
     final data = <String, dynamic>{
       'idUsuario': idUsuario,
       'idJuego': idJuego,
+      'idTienda': tienda,
       'timestamp': FieldValue.serverTimestamp(),
     };
 
@@ -184,9 +189,13 @@ class FirestoreService {
     await ref.doc(docId).set(data, SetOptions(merge: true));
   }
 
-  Future<void> removeListaRegistro(
-      {required String idUsuario, required String idJuego}) async {
-    final docId = '${idUsuario}_$idJuego';
+  Future<void> removeListaRegistro({
+    required String idUsuario,
+    required String idJuego,
+    required String idTienda,
+  }) async {
+    final docId = '${idUsuario}_${idJuego}_$idTienda';
+
     try {
       await _firestore.collection(listaCollection).doc(docId).delete();
     } catch (_) {}
@@ -332,11 +341,6 @@ class FirestoreService {
 
     await addUsuario(nuevoUsuario);
 
-    print('USUARIO ACTUAL → '
-        'id=${UsuarioIniciado.usuario?.id}, '
-        'correo=${UsuarioIniciado.usuario?.correo}, '
-        'anonimo=${UsuarioIniciado.esAnonimo}');
-
     UsuarioIniciado.iniciarSesion(nuevoUsuario);
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -407,5 +411,223 @@ class FirestoreService {
         .limit(1)
         .get();
     return snap.docs.isNotEmpty;
+  }
+
+  Future<bool> actualizarUsuario({
+    required String correoActual,
+    required String contrasena,
+    required String nuevoNick,
+    required String nuevoCorreo,
+  }) async {
+    final snapshot = await _firestore
+        .collection(collectionName)
+        .where('correo', isEqualTo: correoActual)
+        .where('contrasena', isEqualTo: contrasena)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      return false;
+    }
+
+    final docId = snapshot.docs.first.id;
+
+    await _firestore.collection(collectionName).doc(docId).update({
+      'nick': nuevoNick,
+      'correo': nuevoCorreo,
+    });
+
+    return true;
+  }
+
+  Future<bool> verificarContrasena(String correo, String contrasena) async {
+    final snapshot = await _firestore
+        .collection(collectionName)
+        .where('correo', isEqualTo: correo)
+        .where('contrasena', isEqualTo: contrasena)
+        .limit(1)
+        .get();
+
+    return snapshot.docs.isNotEmpty;
+  }
+
+  Future<void> actualizarContrasena(String correo, String nueva) async {
+    final snapshot = await _firestore
+        .collection(collectionName)
+        .where('correo', isEqualTo: correo)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) return;
+
+    final docId = snapshot.docs.first.id;
+
+    await _firestore.collection(collectionName).doc(docId).update({
+      'contrasena': nueva,
+    });
+  }
+
+  Future<void> guardarNotificacion({
+    required String idUser,
+    required String idCheapshark,
+    required String idSteam,
+    required String idTienda,
+    required String titulo,
+    required String porcentajeDescuento,
+    required String precioDeseado,
+    required String tipoNotificacion,
+  }) async {
+    final docId = "${idUser}_${idCheapshark}_${idTienda}";
+
+    await _firestore.collection("ListaNotificacionesPorUser").doc(docId).set({
+      "IdUser": idUser,
+      "IdCheapshark": idCheapshark,
+      "IdSteam": idSteam,
+      "idTienda": idTienda,
+      "Titulo": titulo,
+      "TipoNotificacion": tipoNotificacion,
+      "porcentajeDescuento": porcentajeDescuento,
+      "precioDeseado": precioDeseado,
+    }, SetOptions(merge: true));
+  }
+
+  Future<List<Map<String, dynamic>>> obtenerNotificacionesUsuario(
+      String idUsuario) async {
+    final snapshot = await _firestore
+        .collection("ListaNotificacionesPorUser")
+        .where("IdUser", isEqualTo: idUsuario)
+        .get();
+
+    if (snapshot.docs.isEmpty) return [];
+
+    return snapshot.docs.map((d) {
+      final raw = d.data();
+
+      if (raw is Map<String, dynamic>) {
+        return raw;
+      } else {
+        return Map<String, dynamic>.from(raw as Map);
+      }
+    }).toList();
+  }
+
+  Future<void> borrarNotificacion({
+    required String idUser,
+    required String idCheapshark,
+    required String idTienda,
+  }) async {
+    final docId = "${idUser}_${idCheapshark}_${idTienda}";
+
+    await _firestore
+        .collection("ListaNotificacionesPorUser")
+        .doc(docId)
+        .delete();
+  }
+
+  Future<bool> obtenerEstadoNotificaciones(String idUsuario) async {
+    final snapshot = await _firestore
+        .collection("activarNotificacion")
+        .where("idUsuario", isEqualTo: idUsuario)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) return false;
+
+    final data = snapshot.docs.first.data();
+
+    return (data["estado"] ?? false) == true;
+  }
+
+  Future<void> actualizarEstadoNotificaciones({
+    required String idUsuario,
+    required bool estado,
+  }) async {
+    final docId = idUsuario;
+
+    await _firestore.collection("activarNotificacion").doc(docId).set({
+      "idUsuario": idUsuario,
+      "estado": estado,
+    }, SetOptions(merge: true));
+  }
+
+  Future<bool> toggleEstadoNotificaciones(String idUsuario) async {
+    final ref = _firestore.collection("activarNotificacion");
+
+    final snapshot =
+        await ref.where("idUsuario", isEqualTo: idUsuario).limit(1).get();
+
+    if (snapshot.docs.isEmpty) {
+      await ref.doc(idUsuario).set({
+        "idUsuario": idUsuario,
+        "estado": true,
+      });
+
+      return true;
+    }
+
+    final doc = snapshot.docs.first;
+    final data = doc.data();
+
+    final estadoActual = (data["estado"] ?? false) == true;
+
+    final nuevoEstado = !estadoActual;
+
+    await ref.doc(doc.id).update({
+      "estado": nuevoEstado,
+    });
+
+    return nuevoEstado;
+  }
+
+  Future<bool> borrarCuentaCompleta({
+    required String correo,
+    required String contrasena,
+    required String idUsuario,
+  }) async {
+    try {
+      final correcto = await verificarContrasena(correo, contrasena);
+      if (!correcto) return false;
+      final userSnap = await _firestore
+          .collection(collectionName)
+          .where("correo", isEqualTo: correo)
+          .limit(1)
+          .get();
+
+      if (userSnap.docs.isNotEmpty) {
+        await _firestore
+            .collection(collectionName)
+            .doc(userSnap.docs.first.id)
+            .delete();
+      }
+      final listaSnap = await _firestore
+          .collection(listaCollection)
+          .where("idUsuario", isEqualTo: idUsuario)
+          .get();
+
+      for (var doc in listaSnap.docs) {
+        await doc.reference.delete();
+      }
+      final notiSnap = await _firestore
+          .collection("ListaNotificacionesPorUser")
+          .where("IdUser", isEqualTo: idUsuario)
+          .get();
+
+      for (var doc in notiSnap.docs) {
+        await doc.reference.delete();
+      }
+      final activarSnap = await _firestore
+          .collection("activarNotificacion")
+          .where("idUsuario", isEqualTo: idUsuario)
+          .get();
+
+      for (var doc in activarSnap.docs) {
+        await doc.reference.delete();
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint("Error borrando cuenta: $e");
+      return false;
+    }
   }
 }

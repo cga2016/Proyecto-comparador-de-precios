@@ -6,22 +6,34 @@ class GameTile extends StatelessWidget {
   final bool isFavorito;
   final VoidCallback onTap;
   final ValueChanged<bool> onFavoriteToggle;
-  final String priceText; // texto ya formateado para el precio
-  final String minText; // texto ya formateado para el mínimo histórico
+  final String priceText;
+  final String minText;
 
   const GameTile({
     super.key,
     required this.juego,
     required this.isFavorito,
-    required this.onTap,
-    required this.onFavoriteToggle,
     required this.priceText,
     required this.minText,
+    required this.onTap,
+    required this.onFavoriteToggle,
+    String? storeIcon,
   });
+
+  static const Map<String, String> iconosTiendas = {
+    "1": "https://www.cheapshark.com/img/stores/icons/0.png",
+    "7": "https://www.cheapshark.com/img/stores/icons/6.png",
+    "11": "https://www.cheapshark.com/img/stores/icons/10.png",
+    "13": "https://www.cheapshark.com/img/stores/icons/12.png",
+    "25": "https://www.cheapshark.com/img/stores/icons/24.png",
+  };
 
   @override
   Widget build(BuildContext context) {
     final thumb = juego.thumb;
+
+    final String? iconUrl = iconosTiendas[juego.storeid];
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -60,14 +72,32 @@ class GameTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      juego.title,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            juego.title,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (iconUrl != null)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: Image.network(
+                              iconUrl,
+                              width: 20,
+                              height: 20,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.store,
+                                      color: Colors.white, size: 18),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -79,16 +109,19 @@ class GameTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'Min: $minText',
-                    style: const TextStyle(
-                        color: Colors.greenAccent, fontSize: 12),
-                  ),
-                ],
-              ),
+              if (priceText != minText)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Oferta: $minText',
+                      style: const TextStyle(
+                        color: Colors.greenAccent,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               const SizedBox(width: 8),
               IconButton(
                 onPressed: () => onFavoriteToggle(!isFavorito),

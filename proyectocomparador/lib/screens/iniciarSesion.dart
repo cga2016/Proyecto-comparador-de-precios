@@ -26,9 +26,25 @@ class _IniciarSesionState extends State<IniciarSesion> {
         child: SingleChildScrollView(
           child: Column(
             children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black, width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Image.asset(
+                  'assets/icon/logoComparador.png',
+                  height: 80,
+                ),
+              ),
+              const SizedBox(height: 20),
               const Text(
                 "Inicio de sesión",
-                style: TextStyle(fontSize: 20, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 26,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 30),
               _campoTexto('Correo o Nick', _correoController),

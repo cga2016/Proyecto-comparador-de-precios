@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:proyectocomparador/models/sesionUsuario.dart';
+import 'package:proyectocomparador/screens/mostrarNotificaciones.dart';
 
 class TopBar extends StatelessWidget {
-  const TopBar({super.key});
+  final bool tieneNotificaciones;
+
+  const TopBar({super.key, required this.tieneNotificaciones});
 
   @override
   Widget build(BuildContext context) {
@@ -11,8 +14,13 @@ class TopBar extends StatelessWidget {
     String nick = usuario?.nick ?? "Invitado";
 
     if (nick.length > 30) {
-      nick = nick.substring(0, 27) + "...";
+      nick = "${nick.substring(0, 27)}...";
     }
+
+    /*
+    if (nick.length > 30) {
+      nick = nick.substring(0, 27) + "...";
+    }*/
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -30,22 +38,67 @@ class TopBar extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-
-          // 👇 MouseRegion para cambiar cursor
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () {
-                SesionUsuario.cerrarSesion();
-                Navigator.pushReplacementNamed(
-                    context, "/screen/iniciarSesion");
-              },
-              child: const Icon(
-                Icons.logout,
-                size: 28,
-                color: Colors.white,
+          Row(
+            children: [
+              Stack(
+                children: [
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MostrarNotificaciones(),
+                          ),
+                        );
+                      },
+                      child: const Icon(
+                        Icons.notifications,
+                        size: 28,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  if (tieneNotificaciones)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Text(
+                          "!",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ),
+              const SizedBox(width: 12),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    SesionUsuario.cerrarSesion();
+                    Navigator.pushReplacementNamed(
+                        context, "/screen/iniciarSesion");
+                  },
+                  child: const Icon(
+                    Icons.logout,
+                    size: 28,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

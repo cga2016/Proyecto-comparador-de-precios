@@ -34,6 +34,12 @@ class _BuscadorWidgetState extends State<BuscadorWidget> {
   final TextEditingController _precioMinController = TextEditingController();
   final TextEditingController _precioMaxController = TextEditingController();
 
+  bool _mostrarOpcionesExtra = false;
+
+  Map<String, bool> _tiendasSeleccionadas = {
+    for (var id in tiendasReferencia.keys) id: id == "1"
+  };
+
   bool _isSearching = false;
   bool _mostrarFiltros = false;
 
@@ -47,6 +53,16 @@ class _BuscadorWidgetState extends State<BuscadorWidget> {
 
   DateTime? _selectedFechaMin;
   DateTime? _selectedFechaMax;
+
+  static const Map<String, String> tiendasReferencia = {
+    "1": "Steam",
+    "7": "GOG",
+    "11": "Humble Store",
+    "13": "Uplay",
+    "25": "Epic Games Store",
+  };
+
+  List<String> selectecStores = ["1"];
 
   //String? _categoriaSeleccionada;
 
@@ -79,7 +95,7 @@ class _BuscadorWidgetState extends State<BuscadorWidget> {
         _valoracionMinima.round(),
         _soloOfertas,
         false,
-        "1",
+        selectecStores,
         limit: 50,
         useCache: false,
       );
@@ -125,18 +141,6 @@ class _BuscadorWidgetState extends State<BuscadorWidget> {
   }
 
 // comprobar
-  Future<void> _selectFecha(TextEditingController controller) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-    );
-
-    if (picked != null) {
-      controller.text = "${picked.day}/${picked.month}/${picked.year}";
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -189,129 +193,206 @@ class _BuscadorWidgetState extends State<BuscadorWidget> {
               : CrossFadeState.showSecond,
           firstChild: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxHeight: 350,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () => _selectFechaMin(context),
+                              child: Text(
+                                _selectedFechaMin == null
+                                    ? "Fecha mínima"
+                                    : "${_selectedFechaMin!.day}/${_selectedFechaMin!.month}/${_selectedFechaMin!.year}",
+                              ),
+                            ),
                           ),
-                          onPressed: () => _selectFechaMin(context),
-                          child: Text(
-                            _selectedFechaMin == null
-                                ? "Fecha mínima"
-                                : "${_selectedFechaMin!.day}/${_selectedFechaMin!.month}/${_selectedFechaMin!.year}",
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () => _selectFechaMax(context),
+                              child: Text(
+                                _selectedFechaMax == null
+                                    ? "Fecha máxima"
+                                    : "${_selectedFechaMax!.day}/${_selectedFechaMax!.month}/${_selectedFechaMax!.year}",
+                              ),
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Center(
+                        child: ElevatedButton(
+                          onPressed: _limpiarFechas,
+                          child: const Text("Limpiar fechas"),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                          ),
-                          onPressed: () => _selectFechaMax(context),
-                          child: Text(
-                            _selectedFechaMax == null
-                                ? "Fecha máxima"
-                                : "${_selectedFechaMax!.day}/${_selectedFechaMax!.month}/${_selectedFechaMax!.year}",
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: _limpiarFechas,
-                      child: const Text("Limpiar fechas"),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text("Rango de precio (€)",
-                      style: TextStyle(color: Colors.white)),
-                  Slider(
-                    value: _precioMaximo,
-                    min: 0,
-                    max: 60,
-                    divisions: 60,
-                    label: _precioMaximo == 0
-                        ? "0"
-                        : _precioMaximo == 60
-                            ? "60+ €"
-                            : "${_precioMaximo.toStringAsFixed(0)} €",
-                    onChanged: (value) {
-                      setState(() {
-                        _precioMaximo = value;
-
-                        if (value == 0) {
-                          _priceMax = "0";
-                        } else if (value == 60) {
-                          _priceMax = "60+";
-                        } else {
-                          _priceMax = value.toStringAsFixed(0);
-                        }
-
-                        debugPrint("Precio máximo guardado: $_priceMax");
-                      });
-                    },
-                  ),
-                  Text(
-                    _priceMax.isEmpty
-                        ? "Entre 0 € - 0"
-                        : _priceMax == "60+"
-                            ? "Entre 0 € - 60+ €"
-                            : "Entre 0 € - $_priceMax €",
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text("Valoraciones mínimas (%)",
-                      style: TextStyle(color: Colors.white)),
-                  Slider(
-                    value: _valoracionMinima,
-                    min: 40,
-                    max: 95,
-                    divisions: 11,
-                    label: "${_valoracionMinima.toStringAsFixed(0)} %",
-                    onChanged: (value) {
-                      setState(() {
-                        _valoracionMinima = value;
-                      });
-                    },
-                  ),
-                  Text(
-                    "Desde ${_valoracionMinima.toStringAsFixed(0)} %",
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: _soloOfertas,
-                        onChanged: (bool? value) {
+                      const SizedBox(height: 20),
+                      const Text("Rango de precio (€)",
+                          style: TextStyle(color: Colors.white)),
+                      Slider(
+                        value: _precioMaximo,
+                        min: 0,
+                        max: 60,
+                        divisions: 60,
+                        label: _precioMaximo == 0
+                            ? "0"
+                            : _precioMaximo == 60
+                                ? "60+ €"
+                                : "${_precioMaximo.toStringAsFixed(0)} €",
+                        onChanged: (value) {
                           setState(() {
-                            _soloOfertas = value == true;
-                            debugPrint('[boooooooooool] $_soloOfertas');
+                            _precioMaximo = value;
+
+                            if (value == 0) {
+                              _priceMax = "0";
+                            } else if (value == 60) {
+                              _priceMax = "60+";
+                            } else {
+                              _priceMax = value.toStringAsFixed(0);
+                            }
+
+                            debugPrint("Precio máximo guardado: $_priceMax");
                           });
                         },
                       ),
-                      const Text(
-                        "En oferta",
-                        style: TextStyle(color: Colors.white),
+                      Text(
+                        _priceMax.isEmpty
+                            ? "Entre 0 € - 0"
+                            : _priceMax == "60+"
+                                ? "Entre 0 € - 60+ €"
+                                : "Entre 0 € - $_priceMax €",
+                        style: const TextStyle(color: Colors.white70),
                       ),
+                      const SizedBox(height: 24),
+                      const Text("Valoraciones mínimas (%)",
+                          style: TextStyle(color: Colors.white)),
+                      Slider(
+                        value: _valoracionMinima,
+                        min: 40,
+                        max: 95,
+                        divisions: 11,
+                        label: "${_valoracionMinima.toStringAsFixed(0)} %",
+                        onChanged: (value) {
+                          setState(() {
+                            _valoracionMinima = value;
+                          });
+                        },
+                      ),
+                      Text(
+                        "Desde ${_valoracionMinima.toStringAsFixed(0)} %",
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _soloOfertas,
+                            onChanged: (bool? value) {
+                              setState(() {
+                                _soloOfertas = value == true;
+                              });
+                            },
+                          ),
+                          const Text(
+                            "En oferta",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.tune, color: Colors.white),
+                            onPressed: () {
+                              setState(() {
+                                _mostrarOpcionesExtra = !_mostrarOpcionesExtra;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      AnimatedCrossFade(
+                        duration: const Duration(milliseconds: 300),
+                        crossFadeState: _mostrarOpcionesExtra
+                            ? CrossFadeState.showFirst
+                            : CrossFadeState.showSecond,
+                        firstChild: SizedBox(
+                          height: 180,
+                          child: GridView.builder(
+                            shrinkWrap: true,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            itemCount: tiendasReferencia.length,
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              childAspectRatio: 4,
+                            ),
+                            itemBuilder: (context, index) {
+                              final id =
+                                  tiendasReferencia.keys.elementAt(index);
+                              final nombre = tiendasReferencia[id]!;
+
+                              return CheckboxListTile(
+                                dense: true,
+                                value: _tiendasSeleccionadas[id],
+                                onChanged: (bool? value) {
+                                  final seleccionado = value ?? false;
+
+                                  // evitar desmarcar la última tienda
+                                  if (!seleccionado &&
+                                      selectecStores.length == 1 &&
+                                      selectecStores.contains(id)) {
+                                    return;
+                                  }
+
+                                  setState(() {
+                                    _tiendasSeleccionadas[id] = seleccionado;
+
+                                    if (seleccionado) {
+                                      if (!selectecStores.contains(id)) {
+                                        selectecStores.add(id);
+                                      }
+                                    } else {
+                                      selectecStores.remove(id);
+                                    }
+
+                                    debugPrint(
+                                        "Tiendas seleccionadas: $selectecStores");
+                                  });
+                                },
+                                title: Text(
+                                  nombre,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                contentPadding: EdgeInsets.zero,
+                              );
+                            },
+                          ),
+                        ),
+                        secondChild: const SizedBox.shrink(),
+                      )
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -321,11 +402,18 @@ class _BuscadorWidgetState extends State<BuscadorWidget> {
           child: _isSearching && _searchResults.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : ListView.builder(
+                  //   shrinkWrap: true,
+                  //   physics: const NeverScrollableScrollPhysics(),
                   itemCount: _searchResults.length,
                   itemBuilder: (context, index) {
                     final juego = _searchResults[index];
-                    final esFavorito =
-                        widget.favoriteIds.contains(juego.idCheapshark);
+                    final storeId = juego.listaPorTienda.isNotEmpty
+                        ? juego.listaPorTienda.first.storeId
+                        : juego.storeid;
+
+                    final key = "${juego.idCheapshark}_$storeId";
+
+                    final esFavorito = widget.favoriteIds.contains(key);
 
                     return GameTile(
                       juego: juego,

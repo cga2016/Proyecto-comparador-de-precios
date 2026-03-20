@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:proyectocomparador/firebase/firebase.dart';
 import 'package:proyectocomparador/models/usuario.dart';
@@ -32,7 +34,10 @@ class _RegistroUsuarioState extends State<RegistroUsuario> {
             children: [
               const Text(
                 "Registro",
-                style: TextStyle(color: Colors.white, fontSize: 20),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 30),
               _campo('Nick', _nick),
@@ -149,29 +154,49 @@ class _RegistroUsuarioState extends State<RegistroUsuario> {
   }
 
   Future<void> _registroNormal() async {
-    if (_pass.text != _confirm.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Las contraseñas no coinciden')),
-      );
-      return;
-    }
+    final List<String> errores = [];
 
     final correo = _correo.text.trim();
+    final password = _pass.text.trim();
+    final confirm = _confirm.text.trim();
 
+    if (password != confirm) {
+      errores.add("Las contraseñas no coinciden");
+    }
+
+    final emailRegex =
+        RegExp(r'^[^@]+@[^@]+\.(com|net|es)$', caseSensitive: false);
+
+    if (!emailRegex.hasMatch(correo)) {
+      errores.add("El correo debe ser válido (ej: texto@gmail.com/.net/.es)");
+    }
+
+    if (password.length < 4) {
+      errores.add("La contraseña debe tener al menos 4 caracteres");
+    }
+    final tieneNumero = RegExp(r'\d').hasMatch(password);
+    if (!tieneNumero) {
+      errores.add("La contraseña debe contener al menos un número");
+    }
     if (await firestoreService.correoExiste(correo)) {
+      errores.add("Ya existe un usuario con ese correo");
+    }
+    if (errores.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ya existe un usuario con ese correo')),
+        SnackBar(
+          content: Text(errores.join("\n")),
+          duration: const Duration(seconds: 3),
+        ),
       );
       return;
     }
-
     final id = await firestoreService.obtenerSiguienteId();
 
     final nuevoUsuario = Usuario(
       id: id,
       nick: _nick.text.trim(),
       correo: correo,
-      contrasena: _pass.text.trim(),
+      contrasena: password,
       imagenRuta: 'default.png',
     );
 
